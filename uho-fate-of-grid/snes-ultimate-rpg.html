@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎮 SNES ULTIMATE RPG - KENNEY EDITION 🎮</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000011;
+            color: #ffffff;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        h1 {
+            color: #ffdd00;
+            text-shadow: 2px 2px 0px #ff0044, 4px 4px 8px #000000;
+            margin: 8px 0;
+            font-size: 1.8em;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .game-container {
+            position: relative;
+            border: 6px solid #4a90e2;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            box-shadow: 
+                0 0 40px rgba(74, 144, 226, 0.6),
+                inset 0 0 20px rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+
+        #gameCanvas {
+            display: block;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+            background: linear-gradient(45deg, #1a3d5c, #2a5d8c);
+        }
+
+        .ui-overlay {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: linear-gradient(135deg, rgba(0, 0, 40, 0.95), rgba(20, 20, 60, 0.95));
+            border: 3px solid #4a90e2;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 14px;
+            min-width: 180px;
+            box-shadow: 0 0 20px rgba(74, 144, 226, 0.4);
+        }
+
+        .health-bar {
+            width: 120px;
+            height: 12px;
+            background: linear-gradient(90deg, #330000, #440000);
+            border: 2px solid #ffffff;
+            border-radius: 6px;
+            margin: 6px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff0044, #ff6600, #ffaa00);
+            transition: width 0.5s ease;
+            box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.3);
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            color: #cccccc;
+            font-size: 12px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 1px solid #4a90e2;
+        }
+
+        .controls div {
+            margin: 2px 0;
+        }
+
+        .sprite-debug {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: linear-gradient(135deg, rgba(0, 0, 40, 0.95), rgba(20, 20, 60, 0.95));
+            border: 2px solid #4a90e2;
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 11px;
+            max-width: 200px;
+            box-shadow: 0 0 15px rgba(74, 144, 226, 0.3);
+        }
+
+        .subtitle {
+            color: #4a90e2;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+            text-align: center;
+            text-shadow: 1px 1px 2px #000000;
+        }
+
+        /* SNES-style scanlines */
+        .game-container::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 0, 0, 0.1) 2px,
+                rgba(0, 0, 0, 0.1) 4px
+            );
+            pointer-events: none;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 SNES Ultimate RPG 🎮</h1>
+    <div class="subtitle">Kenney Assets • Smooth Movement • SNES Graphics • 360° Rotation</div>
+
+    <div class="game-container">
+        <canvas id="gameCanvas" width="960" height="640"></canvas>
+        
+        <div class="ui-overlay">
+            <div style="color: #ffdd00; font-weight: bold;">HERO STATUS</div>
+            <div>❤️ HP: <span id="playerHP">100</span>/100</div>
+            <div class="health-bar">
+                <div class="health-fill" id="healthFill" style="width: 100%"></div>
+            </div>
+            <div>💰 Gold: <span id="playerGold">0</span></div>
+            <div>⭐ XP: <span id="playerXP">0</span></div>
+            <div>🗺️ Area: <span id="currentArea">Forest</span></div>
+            <div style="margin-top: 8px; color: #aaddff; font-size: 12px;">
+                Speed: <span id="playerSpeed">0</span>%
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <div><strong>WASD</strong>: Smooth Movement | <strong>Mouse</strong>: Look/Turn</div>
+        <div><strong>Space</strong>: Action | <strong>Shift</strong>: Run | <strong>Q/E</strong>: Zoom</div>
+    </div>
+
+    <div class="sprite-debug" id="debugInfo">
+        <div style="color: #ffdd00; font-weight: bold; margin-bottom: 4px;">SNES ENGINE</div>
+        <div>Frame: <span id="frameCount">0</span></div>
+        <div>Angle: <span id="playerAngle">0</span>°</div>
+        <div>Zoom: <span id="currentZoom">100</span>%</div>
+        <div>Sprites: <span id="spriteCount">0</span></div>
+        <div>FX: <span id="activeEffects">Mode7</span></div>
+    </div>
+
+    <script>
+        console.log('🎮 Starting SNES Ultimate RPG with Kenney Assets...');
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Disable image smoothing for crisp pixel art
+        ctx.imageSmoothingEnabled = false;
+        ctx.webkitImageSmoothingEnabled = false;
+        ctx.mozImageSmoothingEnabled = false;
+        ctx.msImageSmoothingEnabled = false;
+
+        // SNES-inspired constants
+        const WORLD_SIZE = 2000; // Large world size
+        const BASE_SPEED = 3; // Pixels per frame
+        const RUN_MULTIPLIER = 2.2;
+        const ROTATION_SPEED = 0.08; // Radians per frame
+        const MIN_ZOOM = 0.5;
+        const MAX_ZOOM = 2.5;
+        const ZOOM_SPEED = 0.02;
+
+        // Game state with smooth movement
+        let gameState = {
+            player: {
+                x: WORLD_SIZE / 2,
+                y: WORLD_SIZE / 2,
+                angle: 0, // Radians for smooth 360° rotation
+                velocity: { x: 0, y: 0 },
+                speed: 0,
+                hp: 100,
+                maxHP: 100,
+                gold: 0,
+                xp: 0,
+                isRunning: false,
+                animFrame: 0,
+                animTimer: 0,
+                size: 16
+            },
+            camera: {
+                x: WORLD_SIZE / 2,
+                y: WORLD_SIZE / 2,
+                zoom: 1.0,
+                targetZoom: 1.0,
+                rotation: 0,
+                shake: { x: 0, y: 0, intensity: 0 }
+            },
+            world: {
+                objects: [],
+                particles: [],
+                background: []
+            },
+            input: {
+                keys: {},
+                mouse: { x: 0, y: 0, down: false }
+            },
+            effects: {
+                mode7: true,
+                scanlines: true,
+                colorCycling: 0,
+                parallaxOffset: 0
+            },
+            frame: 0,
+            lastTime: 0
+        };
+
+        // Kenney-style sprite creation (procedural)
+        const kenneySpriteSheets = {
+            player: null,
+            environment: null,
+            items: null,
+            effects: null
+        };
+
+        // Initialize Kenney-style sprites
+        function createKenneySprites() {
+            console.log('🎨 Creating Kenney-style sprite sheets...');
+            
+            // Create player sprite sheet (Kenney's character style)
+            kenneySpriteSheets.player = createCanvas(64, 64);
+            const playerCtx = kenneySpriteSheets.player.getContext('2d');
+            drawKenneyPlayer(playerCtx);
+            
+            // Environment sprites (Kenney's nature pack style)
+            kenneySpriteSheets.environment = createCanvas(512, 512);
+            const envCtx = kenneySpriteSheets.environment.getContext('2d');
+            drawKenneyEnvironment(envCtx);
+            
+            // Item sprites (Kenney's item pack style)
+            kenneySpriteSheets.items = createCanvas(256, 256);
+            const itemCtx = kenneySpriteSheets.items.getContext('2d');
+            drawKenneyItems(itemCtx);
+            
+            // Effect sprites for SNES-style FX
+            kenneySpriteSheets.effects = createCanvas(128, 128);
+            const fxCtx = kenneySpriteSheets.effects.getContext('2d');
+            drawSNESEffects(fxCtx);
+            
+            console.log('✅ Kenney sprite sheets created!');
+        }
+
+        function createCanvas(width, height) {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            return canvas;
+        }
+
+        // Draw Kenney-style player character
+        function drawKenneyPlayer(ctx) {
+            // Kenney's signature clean, rounded pixel art style
+            const colors = {
+                skin: '#FFDBAC',
+                hair: '#8B4513', 
+                shirt: '#4169E1', // Royal blue
+                pants: '#2F4F4F', // Dark slate gray
+                shoes: '#654321',
+                outline: '#000000'
+            };
+
+            // Base character (facing down) - Kenney style with outlines
+            ctx.fillStyle = colors.outline;
+            ctx.fillRect(14, 8, 36, 52); // Main outline
+            
+            ctx.fillStyle = colors.skin;
+            ctx.fillRect(16, 10, 32, 20); // Head
+            
+            ctx.fillStyle = colors.hair;
+            ctx.fillRect(18, 8, 28, 12); // Hair
+            
+            ctx.fillStyle = colors.shirt;
+            ctx.fillRect(16, 30, 32, 18); // Shirt
+            
+            ctx.fillStyle = colors.pants;
+            ctx.fillRect(18, 48, 12, 12); // Left leg
+            ctx.fillRect(34, 48, 12, 12); // Right leg
+            
+            ctx.fillStyle = colors.shoes;
+            ctx.fillRect(18, 58, 12, 4); // Left shoe
+            ctx.fillRect(34, 58, 12, 4); // Right shoe
+            
+            // Eyes (Kenney style)
+            ctx.fillStyle = colors.outline;
+            ctx.fillRect(22, 18, 4, 4); // Left eye
+            ctx.fillRect(38, 18, 4, 4); // Right eye
+            
+            // Simple smile
+            ctx.fillRect(28, 26, 8, 2);
+        }
+
+        // Draw Kenney-style environment
+        function drawKenneyEnvironment(ctx) {
+            // Grass tile (0,0)
+            drawKenneyTile(ctx, 0, 0, '#32CD32', '#228B22', 'grass');
+            
+            // Tree (32,0)
+            drawKenneyTile(ctx, 32, 0, '#8B4513', '#654321', 'tree');
+            ctx.fillStyle = '#228B22';
+            ctx.fillRect(36, 4, 24, 20); // Tree top
+            
+            // Rock (64,0) 
+            drawKenneyTile(ctx, 64, 0, '#696969', '#2F2F2F', 'rock');
+            
+            // Water (96,0)
+            drawKenneyTile(ctx, 96, 0, '#4169E1', '#1E90FF', 'water');
+            
+            // Flower (128,0)
+            drawKenneyTile(ctx, 128, 0, '#32CD32', '#228B22', 'grass');
+            ctx.fillStyle = '#FF69B4';
+            ctx.fillRect(144, 8, 8, 8); // Flower
+            
+            // Path tile (160,0)
+            drawKenneyTile(ctx, 160, 0, '#DEB887', '#CD853F', 'path');
+        }
+
+        function drawKenneyTile(ctx, x, y, color1, color2, type) {
+            // Kenney's signature gradient style
+            const gradient = ctx.createLinearGradient(x, y, x, y + 32);
+            gradient.addColorStop(0, color1);
+            gradient.addColorStop(1, color2);
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(x, y, 32, 32);
+            
+            // Add Kenney-style highlights
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.fillRect(x + 2, y + 2, 28, 4);
+        }
+
+        // Draw Kenney-style items
+        function drawKenneyItems(ctx) {
+            // Gold coin (Kenney style)
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(4, 4, 24, 24);
+            ctx.fillStyle = '#FFA500';
+            ctx.fillRect(8, 8, 16, 16);
+            ctx.fillStyle = '#FFFF00';
+            ctx.fillRect(10, 10, 12, 12);
+            
+            // Gem (32,0)
+            ctx.fillStyle = '#9932CC';
+            ctx.fillRect(36, 8, 16, 16);
+            ctx.fillStyle = '#DA70D6';
+            ctx.fillRect(38, 10, 12, 12);
+            
+            // Health potion (64,0)
+            ctx.fillStyle = '#DC143C';
+            ctx.fillRect(68, 4, 16, 24);
+            ctx.fillStyle = '#FF6347';
+            ctx.fillRect(70, 6, 12, 20);
+        }
+
+        // Draw SNES-style effects
+        function drawSNESEffects(ctx) {
+            // Particle effect
+            for (let i = 0; i < 8; i++) {
+                ctx.fillStyle = `hsl(${i * 45}, 100%, 70%)`;
+                ctx.fillRect(i * 4, 0, 3, 3);
+            }
+        }
+
+        // Generate Kenney-style world
+        function generateWorld() {
+            console.log('🌍 Generating Kenney-style world...');
+            
+            gameState.world.objects = [];
+            gameState.world.background = [];
+            
+            // Create background pattern
+            for (let x = 0; x < WORLD_SIZE; x += 32) {
+                for (let y = 0; y < WORLD_SIZE; y += 32) {
+                    let tileType = 'grass';
+                    
+                    // Create patterns
+                    if (Math.random() < 0.3) tileType = 'path';
+                    else if (Math.random() < 0.1) tileType = 'water';
+                    
+                    gameState.world.background.push({
+                        x: x, y: y, type: tileType, sprite: tileType
+                    });
+                }
+            }
+            
+            // Add world objects (trees, rocks, etc.)
+            for (let i = 0; i < 200; i++) {
+                const x = Math.random() * WORLD_SIZE;
+                const y = Math.random() * WORLD_SIZE;
+                const distance = Math.sqrt(
+                    Math.pow(x - gameState.player.x, 2) + 
+                    Math.pow(y - gameState.player.y, 2)
+                );
+                
+                if (distance > 100) { // Don't spawn near player
+                    const objectTypes = ['tree', 'rock', 'flower'];
+                    const type = objectTypes[Math.floor(Math.random() * objectTypes.length)];
+                    
+                    gameState.world.objects.push({
+                        x: x, y: y, type: type, size: 32,
+                        solid: type === 'tree' || type === 'rock'
+                    });
+                }
+            }
+            
+            // Add collectible items
+            for (let i = 0; i < 50; i++) {
+                const x = Math.random() * WORLD_SIZE;
+                const y = Math.random() * WORLD_SIZE;
+                const itemTypes = ['coin', 'gem', 'potion'];
+                const type = itemTypes[Math.floor(Math.random() * itemTypes.length)];
+                
+                gameState.world.objects.push({
+                    x: x, y: y, type: type, size: 16,
+                    collectible: true, value: Math.random() * 20 + 10
+                });
+            }
+            
+            console.log(`✅ World generated: ${gameState.world.objects.length} objects`);
+        }
+
+        // Smooth input handling
+        function handleInput(deltaTime) {
+            const input = gameState.input;
+            const player = gameState.player;
+            
+            // Reset velocity
+            player.velocity.x = 0;
+            player.velocity.y = 0;
+            player.isRunning = input.keys['ShiftLeft'] || input.keys['ShiftRight'];
+            
+            const speed = player.isRunning ? BASE_SPEED * RUN_MULTIPLIER : BASE_SPEED;
+            
+            // Smooth WASD movement
+            if (input.keys['KeyW']) player.velocity.y -= speed;
+            if (input.keys['KeyS']) player.velocity.y += speed;
+            if (input.keys['KeyA']) player.velocity.x -= speed;
+            if (input.keys['KeyD']) player.velocity.x += speed;
+            
+            // Normalize diagonal movement
+            const magnitude = Math.sqrt(player.velocity.x * player.velocity.x + player.velocity.y * player.velocity.y);
+            if (magnitude > 0) {
+                player.velocity.x = (player.velocity.x / magnitude) * speed;
+                player.velocity.y = (player.velocity.y / magnitude) * speed;
+                
+                // Smooth 360° rotation toward movement direction
+                const targetAngle = Math.atan2(player.velocity.y, player.velocity.x);
+                let angleDiff = targetAngle - player.angle;
+                
+                // Normalize angle difference to [-π, π]
+                while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+                
+                // Smooth rotation
+                player.angle += angleDiff * ROTATION_SPEED;
+            }
+            
+            // Calculate speed percentage for UI
+            player.speed = Math.round((magnitude / (BASE_SPEED * RUN_MULTIPLIER)) * 100);
+            
+            // Zoom controls
+            if (input.keys['KeyQ']) gameState.camera.targetZoom = Math.max(MIN_ZOOM, gameState.camera.targetZoom - ZOOM_SPEED);
+            if (input.keys['KeyE']) gameState.camera.targetZoom = Math.min(MAX_ZOOM, gameState.camera.targetZoom + ZOOM_SPEED);
+            
+            // Mouse look (if mouse is down)
+            if (input.mouse.down) {
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                const mouseAngle = Math.atan2(input.mouse.y - centerY, input.mouse.x - centerX);
+                player.angle = mouseAngle;
+            }
+        }
+
+        // Update game physics
+        function updateGame(deltaTime) {
+            const player = gameState.player;
+            
+            // Apply smooth movement
+            player.x += player.velocity.x * (deltaTime / 16.67); // 60fps normalize
+            player.y += player.velocity.y * (deltaTime / 16.67);
+            
+            // Keep player in world bounds
+            player.x = Math.max(player.size, Math.min(WORLD_SIZE - player.size, player.x));
+            player.y = Math.max(player.size, Math.min(WORLD_SIZE - player.size, player.y));
+            
+            // Smooth camera follow
+            const cameraSmooth = 0.1;
+            gameState.camera.x += (player.x - gameState.camera.x) * cameraSmooth;
+            gameState.camera.y += (player.y - gameState.camera.y) * cameraSmooth;
+            
+            // Smooth zoom
+            gameState.camera.zoom += (gameState.camera.targetZoom - gameState.camera.zoom) * 0.1;
+            
+            // Update effects
+            gameState.effects.colorCycling += 0.02;
+            gameState.effects.parallaxOffset += 0.5;
+            
+            // Check collisions and collections
+            checkCollisions();
+            
+            // Update particles
+            updateParticles(deltaTime);
+            
+            // Update animations
+            updateAnimations(deltaTime);
+        }
+
+        function checkCollisions() {
+            const player = gameState.player;
+            
+            gameState.world.objects.forEach((obj, index) => {
+                const distance = Math.sqrt(
+                    Math.pow(obj.x - player.x, 2) + 
+                    Math.pow(obj.y - player.y, 2)
+                );
+                
+                if (distance < (obj.size + player.size) / 2) {
+                    if (obj.collectible) {
+                        // Collect item
+                        if (obj.type === 'coin') gameState.player.gold += Math.floor(obj.value);
+                        else if (obj.type === 'gem') gameState.player.xp += Math.floor(obj.value);
+                        else if (obj.type === 'potion') {
+                            gameState.player.hp = Math.min(gameState.player.maxHP, gameState.player.hp + 25);
+                        }
+                        
+                        // Create collection effect
+                        createParticleEffect(obj.x, obj.y, obj.type);
+                        
+                        // Remove item
+                        gameState.world.objects.splice(index, 1);
+                        console.log(`💎 Collected ${obj.type}!`);
+                    } else if (obj.solid) {
+                        // Collision with solid object - push back
+                        const pushX = (player.x - obj.x) / distance;
+                        const pushY = (player.y - obj.y) / distance;
+                        player.x = obj.x + pushX * ((obj.size + player.size) / 2);
+                        player.y = obj.y + pushY * ((obj.size + player.size) / 2);
+                    }
+                }
+            });
+        }
+
+        function createParticleEffect(x, y, type) {
+            const colors = {
+                'coin': '#FFD700',
+                'gem': '#9932CC', 
+                'potion': '#DC143C'
+            };
+            
+            for (let i = 0; i < 8; i++) {
+                gameState.world.particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 4,
+                    life: 1.0,
+                    color: colors[type] || '#FFFFFF',
+                    size: Math.random() * 4 + 2
+                });
+            }
+        }
+
+        function updateParticles(deltaTime) {
+            gameState.world.particles.forEach((particle, index) => {
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+                particle.vy += 0.1; // Gravity
+                particle.life -= deltaTime / 1000;
+                
+                if (particle.life <= 0) {
+                    gameState.world.particles.splice(index, 1);
+                }
+            });
+        }
+
+        function updateAnimations(deltaTime) {
+            gameState.player.animTimer += deltaTime;
+            if (gameState.player.animTimer > 200) {
+                gameState.player.animFrame = (gameState.player.animFrame + 1) % 4;
+                gameState.player.animTimer = 0;
+            }
+        }
+
+        // SNES-style rendering with Mode 7 effects
+        function render() {
+            const camera = gameState.camera;
+            const player = gameState.player;
+            
+            // Clear screen with gradient background
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#87CEEB'); // Sky blue
+            gradient.addColorStop(0.7, '#98FB98'); // Light green
+            gradient.addColorStop(1, '#228B22'); // Forest green
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Save context for transformations
+            ctx.save();
+            
+            // Apply camera transformations (SNES Mode 7 style)
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.scale(camera.zoom, camera.zoom);
+            ctx.rotate(camera.rotation);
+            ctx.translate(-camera.x, -camera.y);
+            
+            // Add camera shake
+            if (camera.shake.intensity > 0) {
+                ctx.translate(
+                    (Math.random() - 0.5) * camera.shake.intensity,
+                    (Math.random() - 0.5) * camera.shake.intensity
+                );
+                camera.shake.intensity *= 0.9;
+            }
+            
+            // Render background tiles with parallax
+            renderBackground();
+            
+            // Render world objects
+            renderWorldObjects();
+            
+            // Render particles
+            renderParticles();
+            
+            // Render player with smooth rotation
+            renderPlayer();
+            
+            // Restore context
+            ctx.restore();
+            
+            // Render UI (not affected by camera)
+            renderUI();
+            
+            // Apply SNES-style post effects
+            if (gameState.effects.scanlines) {
+                applyScanlineEffect();
+            }
+        }
+
+        function renderBackground() {
+            const camera = gameState.camera;
+            const tileSize = 32;
+            
+            // Calculate visible area
+            const startX = Math.floor((camera.x - canvas.width) / tileSize);
+            const endX = Math.floor((camera.x + canvas.width) / tileSize);
+            const startY = Math.floor((camera.y - canvas.height) / tileSize);
+            const endY = Math.floor((camera.y + canvas.height) / tileSize);
+            
+            gameState.world.background.forEach(tile => {
+                const tileX = Math.floor(tile.x / tileSize);
+                const tileY = Math.floor(tile.y / tileSize);
+                
+                if (tileX >= startX && tileX <= endX && tileY >= startY && tileY <= endY) {
+                    renderTile(tile.x, tile.y, tile.type);
+                }
+            });
+        }
+
+        function renderTile(x, y, type) {
+            const spriteMap = {
+                'grass': { sx: 0, sy: 0 },
+                'path': { sx: 160, sy: 0 },
+                'water': { sx: 96, sy: 0 }
+            };
+            
+            const sprite = spriteMap[type] || { sx: 0, sy: 0 };
+            
+            // Add color cycling for water
+            if (type === 'water') {
+                const cycle = Math.sin(gameState.effects.colorCycling + (x + y) * 0.01) * 0.3 + 0.7;
+                ctx.globalAlpha = cycle;
+            }
+            
+            ctx.drawImage(kenneySpriteSheets.environment, sprite.sx, sprite.sy, 32, 32, x, y, 32, 32);
+            ctx.globalAlpha = 1.0;
+        }
+
+        function renderWorldObjects() {
+            gameState.world.objects.forEach(obj => {
+                // Cull off-screen objects
+                const camera = gameState.camera;
+                if (obj.x < camera.x - canvas.width / 2 || obj.x > camera.x + canvas.width / 2 ||
+                    obj.y < camera.y - canvas.height / 2 || obj.y > camera.y + canvas.height / 2) {
+                    return;
+                }
+                
+                renderObject(obj);
+            });
+        }
+
+        function renderObject(obj) {
+            const spriteMap = {
+                'tree': { sheet: 'environment', sx: 32, sy: 0, sw: 32, sh: 32 },
+                'rock': { sheet: 'environment', sx: 64, sy: 0, sw: 32, sh: 32 },
+                'flower': { sheet: 'environment', sx: 128, sy: 0, sw: 32, sh: 32 },
+                'coin': { sheet: 'items', sx: 0, sy: 0, sw: 32, sh: 32 },
+                'gem': { sheet: 'items', sx: 32, sy: 0, sw: 32, sh: 32 },
+                'potion': { sheet: 'items', sx: 64, sy: 0, sw: 32, sh: 32 }
+            };
+            
+            const sprite = spriteMap[obj.type];
+            if (sprite) {
+                const sheet = kenneySpriteSheets[sprite.sheet];
+                
+                // Add floating animation for collectibles
+                let offsetY = 0;
+                if (obj.collectible) {
+                    offsetY = Math.sin(gameState.frame * 0.1 + obj.x * 0.01) * 3;
+                }
+                
+                ctx.drawImage(
+                    sheet, 
+                    sprite.sx, sprite.sy, sprite.sw, sprite.sh,
+                    obj.x - obj.size/2, obj.y - obj.size/2 + offsetY, obj.size, obj.size
+                );
+            }
+        }
+
+        function renderParticles() {
+            gameState.world.particles.forEach(particle => {
+                ctx.globalAlpha = particle.life;
+                ctx.fillStyle = particle.color;
+                ctx.fillRect(particle.x - particle.size/2, particle.y - particle.size/2, particle.size, particle.size);
+                ctx.globalAlpha = 1.0;
+            });
+        }
+
+        function renderPlayer() {
+            const player = gameState.player;
+            
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            ctx.rotate(player.angle);
+            
+            // Draw player sprite
+            ctx.drawImage(
+                kenneySpriteSheets.player, 0, 0, 64, 64,
+                -player.size, -player.size, player.size * 2, player.size * 2
+            );
+            
+            ctx.restore();
+        }
+
+        function renderUI() {
+            // Update UI elements
+            document.getElementById('playerHP').textContent = Math.floor(gameState.player.hp);
+            document.getElementById('playerGold').textContent = gameState.player.gold;
+            document.getElementById('playerXP').textContent = gameState.player.xp;
+            document.getElementById('playerSpeed').textContent = gameState.player.speed;
+            
+            const healthPercent = (gameState.player.hp / gameState.player.maxHP) * 100;
+            document.getElementById('healthFill').style.width = healthPercent + '%';
+            
+            // Debug info
+            document.getElementById('frameCount').textContent = gameState.frame;
+            document.getElementById('playerAngle').textContent = Math.round(gameState.player.angle * 180 / Math.PI);
+            document.getElementById('currentZoom').textContent = Math.round(gameState.camera.zoom * 100);
+            document.getElementById('spriteCount').textContent = gameState.world.objects.length;
+        }
+
+        function applyScanlineEffect() {
+            // SNES-style scanlines already applied via CSS
+        }
+
+        // Main game loop
+        function gameLoop(currentTime) {
+            const deltaTime = currentTime - gameState.lastTime;
+            gameState.lastTime = currentTime;
+            gameState.frame++;
+            
+            handleInput(deltaTime);
+            updateGame(deltaTime);
+            render();
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            gameState.input.keys[e.code] = true;
+            
+            if (e.code === 'Space') {
+                e.preventDefault();
+                console.log('⚡ Action!');
+                // Create camera shake
+                gameState.camera.shake.intensity = 10;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            gameState.input.keys[e.code] = false;
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            gameState.input.mouse.x = e.clientX - rect.left;
+            gameState.input.mouse.y = e.clientY - rect.top;
+        });
+
+        canvas.addEventListener('mousedown', (e) => {
+            gameState.input.mouse.down = true;
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            gameState.input.mouse.down = false;
+        });
+
+        // Initialize game
+        function initGame() {
+            console.log('🎮 Initializing SNES Ultimate RPG...');
+            createKenneySprites();
+            generateWorld();
+            console.log('✅ Game initialized! Starting smooth gameplay...');
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start the game
+        initGame();
+    </script>
+</body>
+</html>

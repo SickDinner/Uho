@@ -144,8 +144,13 @@ export class MenuScene extends Scene {
     this.menuAnimation.slideOffset = 0;
     this.titleAnimation.scale = 1;
     
-    // Play menu background music (placeholder for audio integration)
-    console.log('🎵 Menu music would play here');
+    // Play menu background music with actual Kenney audio
+    try {
+      audioManager.playMusic('menu_theme', { volume: 0.3, fadeTime: 2000 });
+      console.log('🎵 Menu music started (Kenney.nl UI Audio)');
+    } catch (error) {
+      console.log('🎵 Menu music would play here (audio system not ready):', error);
+    }
     
     // Check for gamepad connection on menu entry
     const connectedGamepads = inputManager.getConnectedGamepads();
@@ -281,13 +286,21 @@ export class MenuScene extends Scene {
   }
   
   private playNavigationSound(): void {
-    // Placeholder for audio integration
-    console.log('🔊 Menu navigation sound would play here');
+    try {
+      audioManager.playSound('ui_hover');
+      console.log('🔊 Menu navigation sound played (Kenney hover)');
+    } catch (error) {
+      console.log('🔊 Menu navigation sound would play here (audio not ready):', error);
+    }
   }
   
   private playSelectionSound(): void {
-    // Placeholder for audio integration
-    console.log('🔊 Menu selection sound would play here');
+    try {
+      audioManager.playSound('ui_click');
+      console.log('🔊 Menu selection sound played (Kenney click)');
+    } catch (error) {
+      console.log('🔊 Menu selection sound would play here (audio not ready):', error);
+    }
   }
   
   update(deltaTime: number): void {

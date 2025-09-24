@@ -1,8 +1,11 @@
 import { World, Entity } from './ecs.ts';
-import { Transform, AI, Sprite, Wallet, LawEnforcement, Inventory } from './components.ts';
+import { Transform, AI, Sprite, Wallet, LawEnforcement, Inventory, Personality } from './components.ts';
 import { MapManager } from './map.ts';
 import type { Vector2 } from './types.ts';
 import { DRUGS, getDrug } from '@data/drugs.ts';
+import { CRIMINAL_BACKGROUNDS, generatePersonality, generateMood, type PersonalityTraits } from './personality.ts';
+import { SocialProfile } from './reputation.ts';
+import { MarketParticipant } from './economy.ts';
 
 export interface NPCDef {
   type: 'police' | 'civilian' | 'dealer' | 'patrol';
@@ -97,9 +100,24 @@ export class NPCManager {
     this.world.componentManager.addComponent(new Sprite(entity.id, def.sprite.toString()));
     this.world.componentManager.addComponent(new AI(entity.id, def.type, 'idle'));
     
+    // Generate personality and social profile
+    const backgroundId = this.getBackgroundForNPCType(def.type);
+    const personality = generatePersonality(backgroundId);
+    const initialMood = generateMood(personality);
+    
+    this.world.componentManager.addComponent(new Personality(entity.id, personality, backgroundId, initialMood));
+    this.world.componentManager.addComponent(new SocialProfile(entity.id));
+    
     // Add type-specific components
     if (def.type === 'dealer') {
-      this.world.componentManager.addComponent(new Wallet(entity.id, 100, 0, 0));
+      const background = CRIMINAL_BACKGROUNDS[backgroundId];
+      const cashAmount = background ? 
+        Math.random() * (background.startingCash.max - background.startingCash.min) + background.startingCash.min :
+        100;
+      
+      this.world.componentManager.addComponent(new Wallet(entity.id, cashAmount, 0, 0));
+      this.world.componentManager.addComponent(new MarketParticipant(entity.id));
+      
       const inventory = new Inventory(entity.id);
       if (def.inventory) {
         for (const item of def.inventory) {
@@ -111,10 +129,20 @@ export class NPCManager {
     
     if (def.type === 'police' || def.type === 'patrol') {
       this.world.componentManager.addComponent(new Wallet(entity.id, 0, 0, 0));
+      this.world.componentManager.addComponent(new LawEnforcement(entity.id));
     }
     
     if (def.type === 'civilian') {
       this.world.componentManager.addComponent(new Wallet(entity.id, Math.random() * 50 + 10, 0, 0));
+    }
+    
+    // Initialize social reputation based on background
+    const socialProfile = this.world.componentManager.getComponent(entity.id, SocialProfile);
+    if (socialProfile && backgroundId && CRIMINAL_BACKGROUNDS[backgroundId]) {
+      const background = CRIMINAL_BACKGROUNDS[backgroundId];
+      for (const [faction, rep] of Object.entries(background.startingReputation)) {
+        socialProfile.modifyFactionReputation(faction, rep, 'background');
+      }
     }
     
     // Store NPC definition
@@ -408,18 +436,60 @@ export class NPCManager {
     return messages;
   }
   
-  getAllNPCs(): Array<{ id: number; def: NPCDef; transform: Transform; ai: AI }> {
-    const allNPCs = [];
-    const aiEntities = this.world.componentManager.getEntitiesWithComponent ? this.world.componentManager.getEntitiesWithComponent(AI) : [];
-    const npcEntities = aiEntities.filter((id: any) => this.world.componentManager.hasComponent(id, AI));
+  // Map NPC types to criminal backgrounds
+  private getBackgroundForNPCType(npcType: string): string {
+    const typeToBackground: Record<string, string[]> = {
+      'dealer': ['street_dealer', 'drug_chemist'],
+      'police': ['corrupt_official'],
+      'civilian': ['street_thief', 'high_class_escort'],
+      'patrol': ['corrupt_official']
+    };
     
-    for (const entity of npcEntities) {
-      const transform = this.world.componentManager.getComponent(entity.id, Transform);
-      const ai = this.world.componentManager.getComponent(entity.id, AI);
-      const def = this.npcs.get(entity.id);
+    const options = typeToBackground[npcType] || ['street_dealer'];
+    return options[Math.floor(Math.random() * options.length)];
+  }
+  
+  // Get NPC personality information
+  getNPCPersonality(npcId: number): { personality: PersonalityTraits; mood: string; background: string } | null {
+    const personalityComp = this.world.componentManager.getComponent(npcId, Personality);
+    if (!personalityComp) return null;
+    
+    return {
+      personality: personalityComp.traits,
+      mood: personalityComp.currentMood.current,
+      background: personalityComp.backgroundId
+    };
+  }
+  
+  // Update NPC moods periodically
+  updateNPCMoods(): void {
+    const personalityComponents = this.world.componentManager.getComponentsOfType(Personality);
+    
+    for (const personality of personalityComponents) {
+      // Update mood duration
+      personality.currentMood.duration -= 1; // Decrease by 1 second
+      
+      // Generate new mood if current one expired
+      if (personality.currentMood.duration <= 0) {
+        const newMood = generateMood(personality.traits);
+        personality.updateMood(newMood);
+      }
+    }
+  }
+  
+  getAllNPCs(): Array<{ id: number; def: NPCDef; transform: Transform; ai: AI }> {
+    const aiComponents = this.world.componentManager.getComponentsOfType(AI);
+    const aiEntities = aiComponents.map(ai => ai.entityId);
+    const npcEntities = aiEntities.filter((id: any) => this.world.componentManager.hasComponent(id, AI));
+    const allNPCs = [];
+    
+    for (const entityId of npcEntities) {
+      const transform = this.world.componentManager.getComponent(entityId, Transform);
+      const ai = this.world.componentManager.getComponent(entityId, AI);
+      const def = this.npcs.get(entityId);
       
       if (transform && ai && def) {
-        allNPCs.push({ id: entity.id, def, transform, ai });
+        allNPCs.push({ id: entityId, def, transform, ai });
       }
     }
     

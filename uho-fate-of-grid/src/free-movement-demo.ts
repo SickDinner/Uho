@@ -206,11 +206,11 @@ export class FreeMovementDemo {
     // Zoom controls
     if (keys.has('=') || keys.has('+')) {
       // Zoom in (SmoothCamera API adjustment needed)
-      smoothCamera.zoomTo(smoothCamera.getCurrentZoom() * 1.05);
+      smoothCamera.moveTo(smoothCamera.position.x, smoothCamera.position.y, smoothCamera.zoom * 1.05);
     }
     if (keys.has('-') || keys.has('_')) {
       // Zoom out (SmoothCamera API adjustment needed)
-      smoothCamera.zoomTo(smoothCamera.getCurrentZoom() * 0.95);
+      smoothCamera.moveTo(smoothCamera.position.x, smoothCamera.position.y, smoothCamera.zoom * 0.95);
     }
 
     // Movement handling

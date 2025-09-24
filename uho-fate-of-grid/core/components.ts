@@ -3,6 +3,9 @@ import type {
   EntityId, Vector2, StatKey, NeedKey, SkillKey, 
   ItemRef, ActiveEffect, Direction 
 } from './types.ts';
+import type { PersonalityTraits, NPCMood } from './personality.ts';
+import type { SocialProfile } from './reputation.ts';
+import type { MarketParticipant } from './economy.ts';
 
 // Transform component for position and movement
 export class Transform extends Component {
@@ -316,6 +319,7 @@ export class Skills extends Component {
       driving: 25,
       chemistry: 10,
       negotiation: 20,
+      technical: 10,
       ...initialSkills
     };
   }
@@ -421,5 +425,57 @@ export class QuestFlag extends Component {
   
   hasFlag(name: string): boolean {
     return name in this.flags;
+  }
+}
+
+// Personality component for NPCs
+export class Personality extends Component {
+  public traits: PersonalityTraits;
+  public backgroundId: string;
+  public currentMood: NPCMood;
+  public moodHistory: Array<{ mood: string; timestamp: number }> = [];
+  
+  constructor(
+    entityId: EntityId,
+    traits: PersonalityTraits,
+    backgroundId: string,
+    initialMood: NPCMood
+  ) {
+    super(entityId);
+    this.traits = traits;
+    this.backgroundId = backgroundId;
+    this.currentMood = initialMood;
+  }
+  
+  updateMood(newMood: NPCMood): void {
+    // Record mood history
+    this.moodHistory.push({
+      mood: this.currentMood.current,
+      timestamp: Date.now()
+    });
+    
+    // Keep only recent mood history
+    if (this.moodHistory.length > 20) {
+      this.moodHistory = this.moodHistory.slice(-20);
+    }
+    
+    this.currentMood = newMood;
+  }
+  
+  // Get effective stat with mood modifiers
+  getEffectiveStat(baseStat: number, statKey: StatKey): number {
+    const moodModifier = this.currentMood.modifiers.stats[statKey] || 0;
+    const intensity = this.currentMood.intensity / 100;
+    return Math.max(0, Math.min(100, baseStat + (moodModifier * intensity)));
+  }
+  
+  // Get current social modifiers based on mood
+  getSocialModifiers(): { aggression: number; cooperation: number; chattiness: number } {
+    const intensity = this.currentMood.intensity / 100;
+    return {
+      aggression: this.currentMood.modifiers.social.aggression * intensity,
+      cooperation: this.currentMood.modifiers.social.cooperation * intensity,
+      chattiness: this.currentMood.modifiers.social.chattiness * intensity
+    };
   }
 }

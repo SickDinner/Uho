@@ -32,7 +32,7 @@ export class EnhancedGame {
   
   // Player entity tracking
   private playerId?: number;
-  private playerPhysicsBody?: PhysicsBody;
+  private playerPhysicsBody?: PhysicsBody | null;
   
   // Game state
   private isRunning: boolean = false;
@@ -237,7 +237,8 @@ export class EnhancedGame {
     this.world.componentManager.addComponent(new LawEnforcement(player.id));
     
     // Get physics body from game mode manager
-    this.playerPhysicsBody = this.gameModeManager.getPlayerPhysicsBody() || null;
+    const body = this.gameModeManager.getPlayerPhysicsBody();
+    this.playerPhysicsBody = body;
     
     // Integrate with existing components
     this.integrateECSWithPhysics();

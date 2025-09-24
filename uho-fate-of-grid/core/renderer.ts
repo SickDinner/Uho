@@ -237,7 +237,7 @@ export class RenderSystem extends System {
     const renderableEntities = this.getRenderableEntities();
     
     for (const entity of renderableEntities) {
-      if (entity.sprite.layer === 'npcs' || (typeof entity.sprite.layer === 'number' && entity.sprite.layer === 0 && entity.layer !== 'player')) {
+      if ((typeof entity.sprite.layer === 'string' && entity.sprite.layer === 'npcs') || (typeof entity.sprite.layer === 'number' && entity.sprite.layer === 0 && entity.layer !== 'player')) {
         this.renderEntity(entity);
       }
     }
@@ -247,7 +247,7 @@ export class RenderSystem extends System {
     const renderableEntities = this.getRenderableEntities();
     
     for (const entity of renderableEntities) {
-      if (entity.sprite.layer === 'player' || entity.layer === 'player') {
+      if ((typeof entity.sprite.layer === 'string' && entity.sprite.layer === 'player') || entity.layer === 'player') {
         this.renderEntity(entity);
       }
     }
@@ -375,9 +375,9 @@ export class RenderSystem extends System {
   private determineEntityLayer(entityId: EntityId, sprite: Sprite): string {
     // Determine layer based on sprite properties or entity type
     // This could be expanded to use a component for layer assignment
-    if (sprite.layer === 'player' || sprite.spriteSheetId === 'player') {
+    if ((typeof sprite.layer === 'string' && sprite.layer === 'player') || sprite.spriteSheetId === 'player') {
       return 'player';
-    } else if (sprite.layer === 'npcs' || (typeof sprite.layer === 'number' && sprite.layer === 10)) {
+    } else if ((typeof sprite.layer === 'string' && sprite.layer === 'npcs') || (typeof sprite.layer === 'number' && sprite.layer === 10)) {
       return 'npcs';
     } else {
       return 'npcs'; // Default to NPCs layer

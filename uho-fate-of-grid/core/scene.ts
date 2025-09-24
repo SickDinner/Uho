@@ -217,8 +217,8 @@ export abstract class Scene {
 export class SceneManager {
   private scenes: Map<string, Scene> = new Map();
   private sceneStack: Scene[] = [];
-  private currentScene?: Scene;
-  private nextScene?: Scene;
+  private currentScene: Scene | undefined;
+  private nextScene: Scene | undefined;
   private isTransitioning: boolean = false;
   
   // Default transitions

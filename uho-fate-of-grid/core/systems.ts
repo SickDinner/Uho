@@ -11,9 +11,10 @@ export class MovementSystem extends System {
     const vehicles = this.componentManager.getComponentsOfType(Vehicle);
     const entities = vehicles.filter(vehicle =>
       this.componentManager.hasComponent(vehicle.entityId, Transform) &&
-      this.componentManager.hasComponent(vehicle.entityId, Physics)
+      this.componentManager.hasComponent(vehicle.entityId, Transform)
+    ).map(vehicle => vehicle.entityId);
     
-    for (const entityId of vehicles) {
+    for (const entityId of entities) {
       const vehicle = this.componentManager.getComponent(entityId, Vehicle)!;
       const transform = this.componentManager.getComponent(entityId, Transform)!;
       
@@ -30,18 +31,205 @@ export class CollisionSystem extends System {
   private worldWidth = 256;
   private worldHeight = 256;
   
+  // Määrittele esteet ja rakennukset kartalla
+  private obstacles: Set<string> = new Set();
+  
+  constructor(componentManager: any, mapManager?: any) {
+    super(componentManager);
+    this.initializeObstacles(mapManager);
+  }
+  
+  private initializeObstacles(mapManager?: any): void {
+    // Lisää rakennuksia ja esteitä
+    // Nämä koordinaatit edustavat läpikävelemättömiä alueita
+    this.addObstacleArea(10, 10, 5, 5); // Esimerkki: poliisiasema
+    this.addObstacleArea(20, 15, 4, 3); // Esimerkki: kauppa
+    this.addObstacleArea(30, 20, 6, 4); // Esimerkki: pankki
+    this.addObstacleArea(45, 35, 3, 3); // Esimerkki: pieni rakennus
+    this.addObstacleArea(60, 25, 4, 6); // Esimerkki: sairaala
+    
+    // Lisää joitain yksittäisiä esteitä
+    this.addObstacle(50, 50); // Puu tai pylväs
+    this.addObstacle(75, 60);
+    this.addObstacle(80, 45);
+    
+    console.log(`🚧 Collision system initialized with ${this.obstacles.size} obstacles`);
+  }
+  
+  private addObstacle(x: number, y: number): void {
+    this.obstacles.add(`${x},${y}`);
+  }
+  
+  private addObstacleArea(startX: number, startY: number, width: number, height: number): void {
+    for (let x = startX; x < startX + width; x++) {
+      for (let y = startY; y < startY + height; y++) {
+        this.addObstacle(x, y);
+      }
+    }
+  }
+  
   update(deltaTime: number): void {
     const entities = this.getEntitiesWithComponents(Transform);
     
     for (const entityId of entities) {
       const transform = this.componentManager.getComponent(entityId, Transform)!;
       
-      // Basic boundary checking
-      if (transform.x < 0) transform.x = 0;
-      if (transform.y < 0) transform.y = 0;
-      if (transform.x >= this.worldWidth) transform.x = this.worldWidth - 1;
-      if (transform.y >= this.worldHeight) transform.y = this.worldHeight - 1;
+      // Tarkista rajojen ylitys
+      this.checkWorldBounds(transform);
     }
+  }
+  
+  // Tarkista voiko liikkua tiettyyn paikkaan
+  public canMoveTo(x: number, y: number, entityId?: number): boolean {
+    // Tarkista maailman rajat
+    if (x < 0 || y < 0 || x >= this.worldWidth || y >= this.worldHeight) {
+      return false;
+    }
+    
+    // Tarkista staattiset esteet
+    if (this.obstacles.has(`${Math.floor(x)},${Math.floor(y)}`)) {
+      return false;
+    }
+    
+    // Tarkista muut entiteetit
+    if (this.isOccupiedByOtherEntity(x, y, entityId)) {
+      return false;
+    }
+    
+    return true;
+  }
+  
+  // Tarkista onko paikka toisen entityn varassa
+  private isOccupiedByOtherEntity(x: number, y: number, excludeEntityId?: number): boolean {
+    const transforms = this.componentManager.getComponentsOfType(Transform);
+    
+    for (const transform of transforms) {
+      if (excludeEntityId && transform.entityId === excludeEntityId) {
+        continue; // Ohita oma entity
+      }
+      
+      // Tarkista onko samassa paikassa (ruudukkoperusteinen)
+      if (Math.floor(transform.x) === Math.floor(x) && 
+          Math.floor(transform.y) === Math.floor(y)) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  // Tarkista ja korjaa maailman rajat
+  private checkWorldBounds(transform: Transform): void {
+    let corrected = false;
+    
+    if (transform.x < 0) {
+      transform.x = 0;
+      corrected = true;
+    }
+    if (transform.y < 0) {
+      transform.y = 0;
+      corrected = true;
+    }
+    if (transform.x >= this.worldWidth) {
+      transform.x = this.worldWidth - 1;
+      corrected = true;
+    }
+    if (transform.y >= this.worldHeight) {
+      transform.y = this.worldHeight - 1;
+      corrected = true;
+    }
+    
+    if (corrected) {
+      console.log(`🚧 Entity ${transform.entityId} hit world boundary, corrected to (${transform.x}, ${transform.y})`);
+    }
+  }
+  
+  // Yritä siirtää entityä tiettyyn suuntaan
+  public attemptMove(entityId: number, direction: 'north' | 'south' | 'east' | 'west'): boolean {
+    const transform = this.componentManager.getComponent(entityId, Transform);
+    if (!transform) return false;
+    
+    let newX = transform.x;
+    let newY = transform.y;
+    
+    switch (direction) {
+      case 'north':
+        newY -= 1;
+        break;
+      case 'south':
+        newY += 1;
+        break;
+      case 'west':
+        newX -= 1;
+        break;
+      case 'east':
+        newX += 1;
+        break;
+    }
+    
+    if (this.canMoveTo(newX, newY, entityId)) {
+      transform.x = newX;
+      transform.y = newY;
+      transform.facing = direction;
+      return true;
+    } else {
+      console.log(`🚧 Move blocked: Entity ${entityId} cannot move ${direction} to (${newX}, ${newY})`);
+      return false;
+    }
+  }
+  
+  // Hae lähin vapaa paikka tietyn pisteen ympäriltä
+  public findNearestFreePosition(x: number, y: number, maxRadius: number = 5): {x: number, y: number} | null {
+    // Aloita keskipisteestä
+    if (this.canMoveTo(x, y)) {
+      return { x, y };
+    }
+    
+    // Etsi spiraalissa
+    for (let radius = 1; radius <= maxRadius; radius++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        for (let dy = -radius; dy <= radius; dy++) {
+          // Tarkista vain kehän pisteet, ei sisäosia
+          if (Math.abs(dx) === radius || Math.abs(dy) === radius) {
+            const testX = x + dx;
+            const testY = y + dy;
+            
+            if (this.canMoveTo(testX, testY)) {
+              return { x: testX, y: testY };
+            }
+          }
+        }
+      }
+    }
+    
+    return null; // Ei vapaata paikkaa löytynyt
+  }
+  
+  // Debug-metodi: tulosta esteet konsoliin
+  public debugObstacles(): void {
+    console.log('🚧 Current obstacles:');
+    Array.from(this.obstacles)
+      .slice(0, 20) // Näytä vain 20 ensimmäistä
+      .forEach(pos => console.log(`  - ${pos}`));
+    
+    if (this.obstacles.size > 20) {
+      console.log(`  ... and ${this.obstacles.size - 20} more`);
+    }
+  }
+  
+  // Lisää uusi este dynaamisesti
+  public addDynamicObstacle(x: number, y: number): void {
+    this.obstacles.add(`${x},${y}`);
+  }
+  
+  // Poista este
+  public removeObstacle(x: number, y: number): void {
+    this.obstacles.delete(`${x},${y}`);
+  }
+  
+  // Tarkista onko paikka este
+  public isObstacle(x: number, y: number): boolean {
+    return this.obstacles.has(`${Math.floor(x)},${Math.floor(y)}`);
   }
 }
 
@@ -82,8 +270,7 @@ export class AddictionSystem extends System {
     const addictionComponents = this.componentManager.getComponentsOfType(Addiction);
     const entities = addictionComponents.filter(addiction =>
       this.componentManager.hasComponent(addiction.entityId, Needs)
-      this.componentManager.getComponent(id, Needs) !== null
-    );
+    ).map(addiction => addiction.entityId);
     
     for (const entityId of entities) {
       const addiction = this.componentManager.getComponent(entityId, Addiction)!;
@@ -189,12 +376,12 @@ export class PoliceAISystem extends System {
     const aiComponents = this.componentManager.getComponentsOfType(AI);
     const policeEntities = aiComponents.filter(ai =>
       this.componentManager.hasComponent(ai.entityId, LawEnforcement)
-      this.componentManager.getComponent(id, LawEnforcement) !== null
-    );
+    ).map(ai => ai.entityId);
+    
     const lawComponents = this.componentManager.getComponentsOfType(LawEnforcement);
     const playerEntities = lawComponents.filter(law =>
       this.componentManager.hasComponent(law.entityId, Transform)
-    );
+    ).map(law => law.entityId);
     
     if (playerEntities.length === 0) return;
     
@@ -250,7 +437,7 @@ export class VehicleSystem extends System {
     const vehicleComponents = this.componentManager.getComponentsOfType(Vehicle);
     const vehicles = vehicleComponents.filter(vehicle =>
       this.componentManager.hasComponent(vehicle.entityId, Transform)
-    );
+    ).map(vehicle => vehicle.entityId);
     
     for (const entityId of vehicles) {
       const vehicle = this.componentManager.getComponent(entityId, Vehicle)!;
@@ -356,14 +543,14 @@ export class SaveLoadSystem extends System {
     try {
       const transformComponents = this.componentManager.getComponentsOfType(Transform);
       const playerEntities = transformComponents.filter(transform =>
-        this.componentManager.hasComponent(transform.entityId, Player)
-        this.componentManager.getComponent(id, Needs) !== null &&
-        this.componentManager.getComponent(id, Inventory) !== null &&
-        this.componentManager.getComponent(id, Wallet) !== null &&
-        this.componentManager.getComponent(id, Skills) !== null &&
-        this.componentManager.getComponent(id, Addiction) !== null &&
-        this.componentManager.getComponent(id, LawEnforcement) !== null
-      );
+        this.componentManager.hasComponent(transform.entityId, Stats) &&
+        this.componentManager.hasComponent(transform.entityId, Needs) &&
+        this.componentManager.hasComponent(transform.entityId, Inventory) &&
+        this.componentManager.hasComponent(transform.entityId, Wallet) &&
+        this.componentManager.hasComponent(transform.entityId, Skills) &&
+        this.componentManager.hasComponent(transform.entityId, Addiction) &&
+        this.componentManager.hasComponent(transform.entityId, LawEnforcement)
+      ).map(transform => transform.entityId);
       
       if (playerEntities.length === 0) return false;
       
@@ -429,4 +616,15 @@ export class SaveLoadSystem extends System {
       if (saveData) {
         try {
           const parsed = JSON.parse(saveData);
-          slots.push({ slot: i, t
+          slots.push({ slot: i, timestamp: parsed.timestamp, exists: true });
+        } catch {
+          slots.push({ slot: i, exists: false });
+        }
+      } else {
+        slots.push({ slot: i, exists: false });
+      }
+    }
+    
+    return slots;
+  }
+}

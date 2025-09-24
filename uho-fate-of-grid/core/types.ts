@@ -12,7 +12,7 @@ export type NeedKey =
 
 export type SkillKey =
   | 'theft' | 'lying' | 'torture' | 'debt' | 'brawling' | 'lockpicking' 
-  | 'evasion' | 'adult' | 'driving' | 'chemistry' | 'negotiation';
+  | 'evasion' | 'adult' | 'driving' | 'chemistry' | 'negotiation' | 'technical';
 
 export type Direction = 'north' | 'south' | 'east' | 'west';
 

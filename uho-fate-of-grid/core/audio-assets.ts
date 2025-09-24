@@ -23,57 +23,30 @@ export class AudioAssetRegistry {
   }
 
   private registerAllAssets(): void {
-    // MUSIC TRACKS - Atmospheric background music
+    // MUSIC TRACKS - Atmospheric background music (using Kenney.nl audio)
     this.registerAsset({
       id: 'city_theme',
-      src: 'assets/audio/music/city_ambience.ogg',
+      src: 'assets/audio/music/city_ambience.ogg', // Kenney Digital Audio preview
       category: 'music',
-      volume: 0.7,
+      volume: 0.4, // Lower volume for ambient background
       loop: true,
-      description: 'Urban atmospheric theme with distant traffic and city hum'
-    });
-
-    this.registerAsset({
-      id: 'industrial_theme',
-      src: 'assets/audio/music/industrial_dark.ogg',
-      category: 'music',
-      volume: 0.6,
-      loop: true,
-      description: 'Dark industrial theme with machinery and metal sounds'
-    });
-
-    this.registerAsset({
-      id: 'suburban_theme',
-      src: 'assets/audio/music/suburban_melancholy.ogg',
-      category: 'music',
-      volume: 0.5,
-      loop: true,
-      description: 'Melancholic suburban atmosphere'
-    });
-
-    this.registerAsset({
-      id: 'underground_theme',
-      src: 'assets/audio/music/underground_tension.ogg',
-      category: 'music',
-      volume: 0.8,
-      loop: true,
-      description: 'Tense underground atmosphere with echoing sounds'
+      description: 'Digital atmospheric theme perfect for urban exploration'
     });
 
     this.registerAsset({
       id: 'menu_theme',
-      src: 'assets/audio/music/main_menu.ogg',
+      src: 'assets/audio/music/main_menu.ogg', // Kenney UI Audio preview
       category: 'music',
-      volume: 0.6,
+      volume: 0.3,
       loop: true,
-      description: 'Main menu atmospheric music'
+      description: 'Main menu atmospheric music with UI audio elements'
     });
 
     this.registerAsset({
-      id: 'creation-theme',
-      src: 'assets/audio/music/character_creation.ogg',
+      id: 'character_creation_theme',
+      src: 'assets/audio/music/character_creation.ogg', // Kenney UI Audio preview (softer)
       category: 'music',
-      volume: 0.5,
+      volume: 0.25,
       loop: true,
       description: 'Character creation atmospheric music'
     });
@@ -333,50 +306,50 @@ export class AudioAssetRegistry {
       description: 'Distant police siren'
     });
 
-    // UI SOUNDS
+    // UI SOUNDS - Real Kenney.nl audio files
     this.registerAsset({
       id: 'ui_click',
-      src: 'assets/audio/ui/button_click.ogg',
+      src: 'assets/audio/ui/button_click.ogg', // Kenney UI Audio click1.ogg
       category: 'ui',
-      volume: 0.3,
+      volume: 0.4,
       loop: false,
-      description: 'UI button click'
+      description: 'UI button click - crisp and responsive'
     });
 
     this.registerAsset({
       id: 'ui_hover',
-      src: 'assets/audio/ui/button_hover.ogg',
+      src: 'assets/audio/ui/button_hover.ogg', // Kenney UI Audio rollover2.ogg
       category: 'ui',
-      volume: 0.2,
+      volume: 0.3,
       loop: false,
-      description: 'UI button hover'
+      description: 'UI button hover - subtle rollover sound'
     });
 
     this.registerAsset({
       id: 'ui_error',
-      src: 'assets/audio/ui/error_beep.ogg',
+      src: 'assets/audio/ui/error_beep.ogg', // Kenney Interface error_003.ogg
       category: 'ui',
-      volume: 0.4,
+      volume: 0.5,
       loop: false,
-      description: 'UI error sound'
+      description: 'UI error sound - clear error indication'
     });
 
     this.registerAsset({
       id: 'ui_success',
-      src: 'assets/audio/ui/success_chime.ogg',
+      src: 'assets/audio/ui/success_chime.ogg', // Kenney Interface confirmation_001.ogg
       category: 'ui',
       volume: 0.4,
       loop: false,
-      description: 'UI success sound'
+      description: 'UI success sound - positive confirmation'
     });
 
     this.registerAsset({
       id: 'ui_notification',
-      src: 'assets/audio/ui/notification_pop.ogg',
+      src: 'assets/audio/ui/notification_pop.ogg', // Kenney Interface select_002.ogg
       category: 'ui',
       volume: 0.3,
       loop: false,
-      description: 'UI notification sound'
+      description: 'UI notification sound - attention grabbing'
     });
 
     console.log(`🎵 Registered ${this.assets.size} audio assets`);

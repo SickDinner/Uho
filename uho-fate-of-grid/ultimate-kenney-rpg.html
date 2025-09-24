@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎮 ULTIMATE KENNEY RPG 🎮</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000011;
+            color: #ffffff;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        h1 {
+            color: #ffdd00;
+            text-shadow: 2px 2px 0px #ff0044, 4px 4px 8px #000000;
+            margin: 8px 0;
+            font-size: 1.8em;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .game-container {
+            position: relative;
+            border: 6px solid #4a90e2;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            box-shadow: 
+                0 0 40px rgba(74, 144, 226, 0.6),
+                inset 0 0 20px rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+
+        #gameCanvas {
+            display: block;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+            background: linear-gradient(45deg, #1a3d5c, #2a5d8c);
+        }
+
+        .ui-overlay {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: linear-gradient(135deg, rgba(0, 0, 40, 0.95), rgba(20, 20, 60, 0.95));
+            border: 3px solid #4a90e2;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 14px;
+            min-width: 180px;
+            box-shadow: 0 0 20px rgba(74, 144, 226, 0.4);
+        }
+
+        .health-bar {
+            width: 120px;
+            height: 12px;
+            background: linear-gradient(90deg, #330000, #440000);
+            border: 2px solid #ffffff;
+            border-radius: 6px;
+            margin: 6px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff0044, #ff6600, #ffaa00);
+            transition: width 0.5s ease;
+            box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.3);
+        }
+
+        .subtitle {
+            color: #4a90e2;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+            text-align: center;
+            text-shadow: 1px 1px 2px #000000;
+        }
+
+        .dialog-box {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, rgba(0, 0, 40, 0.95), rgba(20, 20, 60, 0.95));
+            border: 3px solid #4a90e2;
+            border-radius: 8px;
+            padding: 16px;
+            font-size: 16px;
+            max-width: 600px;
+            min-width: 400px;
+            box-shadow: 0 0 30px rgba(74, 144, 226, 0.6);
+            display: none;
+            z-index: 200;
+        }
+
+        .dialog-name {
+            color: #ffdd00;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .dialog-text {
+            color: #ffffff;
+            line-height: 1.4;
+        }
+
+        /* SNES-style scanlines */
+        .game-container::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 0, 0, 0.1) 2px,
+                rgba(0, 0, 0, 0.1) 4px
+            );
+            pointer-events: none;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 Ultimate Kenney RPG 🎮</h1>
+    <div class="subtitle">Real Character Sprites • Living NPCs • Scrolling World</div>
+
+    <div class="game-container">
+        <canvas id="gameCanvas" width="960" height="640"></canvas>
+        
+        <div class="ui-overlay">
+            <div style="color: #ffdd00; font-weight: bold;">HERO STATUS</div>
+            <div>❤️ HP: <span id="playerHP">100</span>/100</div>
+            <div class="health-bar">
+                <div class="health-fill" id="healthFill" style="width: 100%"></div>
+            </div>
+            <div>💰 Gold: <span id="playerGold">0</span></div>
+            <div>⭐ XP: <span id="playerXP">0</span></div>
+            <div>🗺️ Area: <span id="currentArea">Village</span></div>
+            <div style="margin-top: 8px; color: #aaddff; font-size: 12px;">
+                NPCs: <span id="npcCount">0</span>
+            </div>
+        </div>
+
+        <div class="dialog-box" id="dialogBox">
+            <div class="dialog-name" id="dialogName"></div>
+            <div class="dialog-text" id="dialogText"></div>
+        </div>
+    </div>
+
+    <script>
+        console.log('🎮 Starting Ultimate Kenney RPG with NPCs...');
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Disable image smoothing for crisp pixel art
+        ctx.imageSmoothingEnabled = false;
+        ctx.webkitImageSmoothingEnabled = false;
+        ctx.mozImageSmoothingEnabled = false;
+        ctx.msImageSmoothingEnabled = false;
+
+        // Game constants
+        const WORLD_SIZE = 3000; // Larger scrolling world
+        const BASE_SPEED = 4;
+        const RUN_MULTIPLIER = 2.2;
+        const ROTATION_SPEED = 0.08;
+        const MIN_ZOOM = 0.3;
+        const MAX_ZOOM = 3.0;
+        const ZOOM_SPEED = 0.03;
+        const NPC_INTERACTION_DISTANCE = 60;
+
+        // Game state
+        let gameState = {
+            player: {
+                x: WORLD_SIZE / 2,
+                y: WORLD_SIZE / 2,
+                angle: 0,
+                velocity: { x: 0, y: 0 },
+                speed: 0,
+                hp: 100,
+                maxHP: 100,
+                gold: 0,
+                xp: 0,
+                isRunning: false,
+                size: 32,
+                animFrame: 0,
+                animTimer: 0,
+                isWalking: false
+            },
+            camera: {
+                x: WORLD_SIZE / 2,
+                y: WORLD_SIZE / 2,
+                zoom: 1.0,
+                targetZoom: 1.0,
+                shake: { intensity: 0 }
+            },
+            world: {
+                objects: [],
+                npcs: [],
+                particles: [],
+                background: []
+            },
+            input: {
+                keys: {},
+                mouse: { x: 0, y: 0, down: false }
+            },
+            dialog: {
+                active: false,
+                npc: null,
+                text: '',
+                name: ''
+            },
+            assets: {
+                loaded: false,
+                sprites: {}
+            },
+            frame: 0,
+            lastTime: 0
+        };
+
+        // NPC dialog data
+        const npcDialogs = {
+            'villager_man': [
+                "Welcome to our peaceful village, traveler!",
+                "I've lived here all my life. It's a quiet place.",
+                "Have you seen any strange creatures lately?",
+                "The weather has been quite nice recently."
+            ],
+            'villager_woman': [
+                "Hello there! Are you new around here?",
+                "This village has the best market in the region!",
+                "Be careful if you venture into the forest.",
+                "I make the finest bread in town!"
+            ],
+            'alien_visitor': [
+                "Greetings, earthling! I come in peace.",
+                "Your planet is quite beautiful from up here.",
+                "I'm studying your curious human behavior.",
+                "Do you have any space fuel? My ship is running low."
+            ],
+            'merchant': [
+                "Looking to buy or sell something?",
+                "I have the finest goods from across the land!",
+                "Gold coins are always welcome here.",
+                "Come back anytime, friend!"
+            ]
+        };
+
+        // Load Kenney character sprites
+        function loadKenneyAssets() {
+            console.log('🎨 Loading Kenney character sprites...');
+            
+            const assetPaths = {
+                // Player character sprites (multiple directions/animations)
+                'player_idle': 'assets/sprites/16bit/zip/PNG/Characters/man.png',
+                'player_walk1': 'assets/sprites/16bit/zip/PNG/Characters/man_walk1.png',
+                'player_walk2': 'assets/sprites/16bit/zip/PNG/Characters/man_walk2.png',
+                'player_down': 'assets/sprites/16bit/zip/PNG/Characters/man_down.png',
+                'player_point': 'assets/sprites/16bit/zip/PNG/Characters/man_point.png',
+                
+                // NPC character sprites
+                'woman_idle': 'assets/sprites/16bit/zip/PNG/Characters/woman.png',
+                'woman_walk1': 'assets/sprites/16bit/zip/PNG/Characters/woman_walk1.png',
+                'woman_walk2': 'assets/sprites/16bit/zip/PNG/Characters/woman_walk2.png',
+                'woman_down': 'assets/sprites/16bit/zip/PNG/Characters/woman_down.png',
+                
+                // Alien NPCs
+                'alien_blue': 'assets/sprites/16bit/zip/PNG/Aliens/alienBlue_suit.png',
+                'alien_green': 'assets/sprites/16bit/zip/PNG/Aliens/alienGreen_suit.png',
+                'alien_pink': 'assets/sprites/16bit/zip/PNG/Aliens/alienPink_suit.png',
+                'alien_yellow': 'assets/sprites/16bit/zip/PNG/Aliens/alienYellow_suit.png',
+                'alien_beige': 'assets/sprites/16bit/zip/PNG/Aliens/alienBeige_suit.png',
+                
+                // Environment sprites
+                'tree': 'assets/sprites/16bit/zip/PNG/Default/tree.png',
+                'bush1': 'assets/sprites/16bit/zip/PNG/Default/bush1.png',
+                'bush2': 'assets/sprites/16bit/zip/PNG/Default/bush2.png',
+                'house1': 'assets/sprites/16bit/zip/PNG/Default/house1.png',
+                'house2': 'assets/sprites/16bit/zip/PNG/Default/house2.png',
+                'castle': 'assets/sprites/16bit/zip/PNG/Default/castleSmall.png',
+                'tower': 'assets/sprites/16bit/zip/PNG/Default/tower.png',
+                'fence': 'assets/sprites/16bit/zip/PNG/Default/fence.png',
+                
+                // Background tiles
+                'grass_bg': 'assets/sprites/16bit/zip/PNG/Backgrounds/colored_grass.png',
+                'desert_bg': 'assets/sprites/16bit/zip/PNG/Backgrounds/colored_desert.png'
+            };
+
+            let loadedCount = 0;
+            const totalAssets = Object.keys(assetPaths).length;
+
+            // Create fallback sprites first
+            createFallbackSprites();
+
+            for (const [key, path] of Object.entries(assetPaths)) {
+                const img = new Image();
+                img.onload = () => {
+                    gameState.assets.sprites[key] = img;
+                    loadedCount++;
+                    console.log(`📷 Loaded: ${key} (${loadedCount}/${totalAssets})`);
+                    
+                    if (loadedCount === totalAssets) {
+                        gameState.assets.loaded = true;
+                        console.log('✅ All character sprites loaded!');
+                    }
+                };
+                img.onerror = () => {
+                    console.warn(`⚠️ Failed to load: ${path}, using fallback`);
+                    loadedCount++;
+                    if (loadedCount === totalAssets) {
+                        gameState.assets.loaded = true;
+                        console.log('✅ Assets loaded with fallbacks!');
+                    }
+                };
+                img.src = path;
+            }
+        }
+
+        // Create fallback character sprites
+        function createFallbackSprites() {
+            const characterColors = {
+                'player_idle': '#4169E1', 'woman_idle': '#FF69B4',
+                'alien_blue': '#1E90FF', 'alien_green': '#32CD32',
+                'alien_pink': '#FF69B4', 'alien_yellow': '#FFD700',
+                'alien_beige': '#F5DEB3'
+            };
+
+            // Create simple character fallbacks
+            Object.entries(characterColors).forEach(([key, color]) => {
+                const canvas = document.createElement('canvas');
+                canvas.width = 32;
+                canvas.height = 32;
+                const ctx = canvas.getContext('2d');
+                
+                // Body
+                ctx.fillStyle = color;
+                ctx.fillRect(4, 8, 24, 20);
+                
+                // Head
+                ctx.fillStyle = key.includes('alien') ? color : '#FFDBAC';
+                ctx.fillRect(8, 4, 16, 12);
+                
+                // Simple eyes
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(10, 8, 2, 2);
+                ctx.fillRect(20, 8, 2, 2);
+                
+                gameState.assets.sprites[key] = canvas;
+            });
+
+            // Create environment fallbacks
+            const envSprites = {
+                'tree': '#228B22', 'bush1': '#32CD32', 'house1': '#8B4513',
+                'castle': '#696969', 'tower': '#A9A9A9'
+            };
+
+            Object.entries(envSprites).forEach(([key, color]) => {
+                const canvas = document.createElement('canvas');
+                canvas.width = 48;
+                canvas.height = 48;
+                const ctx = canvas.getContext('2d');
+                
+                ctx.fillStyle = color;
+                ctx.fillRect(0, 0, 48, 48);
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(1, 1, 46, 46);
+                
+                gameState.assets.sprites[key] = canvas;
+            });
+        }
+
+        // Generate living world with NPCs
+        function generateWorld() {
+            console.log('🌍 Creating living world with NPCs...');
+            
+            gameState.world.objects = [];
+            gameState.world.npcs = [];
+            gameState.world.background = [];
+            
+            // Create scrollable tiled background
+            const tileSize = 128;
+            for (let x = 0; x < WORLD_SIZE; x += tileSize) {
+                for (let y = 0; y < WORLD_SIZE; y += tileSize) {
+                    let bgType = 'grass';
+                    // Create biome variation
+                    const distanceFromCenter = Math.sqrt(
+                        Math.pow(x - WORLD_SIZE/2, 2) + Math.pow(y - WORLD_SIZE/2, 2)
+                    );
+                    if (distanceFromCenter > WORLD_SIZE * 0.3) bgType = 'desert';
+                    
+                    gameState.world.background.push({
+                        x: x, y: y, type: bgType, size: tileSize
+                    });
+                }
+            }
+            
+            // Add environmental objects
+            const objectTypes = [
+                { type: 'tree', count: 150, minDistance: 120 },
+                { type: 'bush1', count: 100, minDistance: 80 },
+                { type: 'house1', count: 25, minDistance: 300 },
+                { type: 'castle', count: 5, minDistance: 500 },
+                { type: 'tower', count: 12, minDistance: 400 }
+            ];
+
+            objectTypes.forEach(objDef => {
+                for (let i = 0; i < objDef.count; i++) {
+                    const x = Math.random() * WORLD_SIZE;
+                    const y = Math.random() * WORLD_SIZE;
+                    const distance = Math.sqrt(
+                        Math.pow(x - gameState.player.x, 2) + 
+                        Math.pow(y - gameState.player.y, 2)
+                    );
+                    
+                    if (distance > objDef.minDistance) {
+                        gameState.world.objects.push({
+                            x: x, y: y, 
+                            type: objDef.type, 
+                            size: getSpriteSize(objDef.type),
+                            solid: isSolid(objDef.type)
+                        });
+                    }
+                }
+            });
+
+            // Create NPCs with AI behavior
+            createNPCs();
+            
+            // Add collectibles
+            for (let i = 0; i < 80; i++) {
+                const x = Math.random() * WORLD_SIZE;
+                const y = Math.random() * WORLD_SIZE;
+                gameState.world.objects.push({
+                    x: x, y: y,
+                    type: Math.random() < 0.6 ? 'coin' : 'gem',
+                    size: 16,
+                    collectible: true,
+                    value: Math.random() * 30 + 10,
+                    floatOffset: Math.random() * Math.PI * 2
+                });
+            }
+            
+            console.log(`✅ Living world generated: ${gameState.world.objects.length} objects, ${gameState.world.npcs.length} NPCs`);
+        }
+
+        // Create intelligent NPCs
+        function createNPCs() {
+            const npcTypes = [
+                { sprite: 'woman_idle', type: 'villager_woman', count: 15 },
+                { sprite: 'player_idle', type: 'villager_man', count: 12 },
+                { sprite: 'alien_blue', type: 'alien_visitor', count: 8 },
+                { sprite: 'alien_green', type: 'alien_visitor', count: 6 },
+                { sprite: 'alien_pink', type: 'alien_visitor', count: 4 }
+            ];
+
+            npcTypes.forEach(npcDef => {
+                for (let i = 0; i < npcDef.count; i++) {
+                    const x = Math.random() * WORLD_SIZE;
+                    const y = Math.random() * WORLD_SIZE;
+                    const distance = Math.sqrt(
+                        Math.pow(x - gameState.player.x, 2) + 
+                        Math.pow(y - gameState.player.y, 2)
+                    );
+                    
+                    if (distance > 200) { // Don't spawn too close to player
+                        gameState.world.npcs.push({
+                            x: x, y: y,
+                            sprite: npcDef.sprite,
+                            type: npcDef.type,
+                            size: 32,
+                            angle: Math.random() * Math.PI * 2,
+                            
+                            // AI behavior
+                            ai: {
+                                state: 'idle', // idle, walking, talking
+                                timer: 0,
+                                targetX: x,
+                                targetY: y,
+                                speed: 1 + Math.random() * 2,
+                                wanderRadius: 100 + Math.random() * 200,
+                                homeX: x,
+                                homeY: y,
+                                dialogIndex: 0,
+                                lastSpoke: 0
+                            },
+                            
+                            // Animation
+                            animFrame: 0,
+                            animTimer: 0,
+                            isWalking: false
+                        });
+                    }
+                }
+            });
+        }
+
+        function getSpriteSize(type) {
+            const sizes = {
+                'tree': 64, 'bush1': 40, 'house1': 96, 'castle': 128, 'tower': 80,
+                'coin': 16, 'gem': 16
+            };
+            return sizes[type] || 48;
+        }
+
+        function isSolid(type) {
+            return ['tree', 'house1', 'castle', 'tower'].includes(type);
+        }
+
+        // Enhanced input handling
+        function handleInput(deltaTime) {
+            const input = gameState.input;
+            const player = gameState.player;
+            
+            // Don't move if dialog is active
+            if (gameState.dialog.active) {
+                if (input.keys['Space'] || input.keys['Enter']) {
+                    closeDialog();
+                }
+                return;
+            }
+            
+            player.velocity.x = 0;
+            player.velocity.y = 0;
+            player.isRunning = input.keys['ShiftLeft'] || input.keys['ShiftRight'];
+            
+            const speed = player.isRunning ? BASE_SPEED * RUN_MULTIPLIER : BASE_SPEED;
+            
+            // Movement
+            if (input.keys['KeyW']) player.velocity.y -= speed;
+            if (input.keys['KeyS']) player.velocity.y += speed;
+            if (input.keys['KeyA']) player.velocity.x -= speed;
+            if (input.keys['KeyD']) player.velocity.x += speed;
+            
+            // Check if player is walking for animation
+            const magnitude = Math.sqrt(player.velocity.x * player.velocity.x + player.velocity.y * player.velocity.y);
+            player.isWalking = magnitude > 0;
+            
+            if (magnitude > 0) {
+                // Normalize movement
+                player.velocity.x = (player.velocity.x / magnitude) * speed;
+                player.velocity.y = (player.velocity.y / magnitude) * speed;
+                
+                // Smooth rotation toward movement
+                const targetAngle = Math.atan2(player.velocity.y, player.velocity.x);
+                let angleDiff = targetAngle - player.angle;
+                
+                while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+                
+                player.angle += angleDiff * ROTATION_SPEED;
+            }
+            
+            // Zoom controls
+            if (input.keys['KeyQ']) gameState.camera.targetZoom = Math.max(MIN_ZOOM, gameState.camera.targetZoom - ZOOM_SPEED);
+            if (input.keys['KeyE']) gameState.camera.targetZoom = Math.min(MAX_ZOOM, gameState.camera.targetZoom + ZOOM_SPEED);
+            
+            // Interaction
+            if (input.keys['Space']) {
+                checkNPCInteraction();
+            }
+        }
+
+        // NPC interaction system
+        function checkNPCInteraction() {
+            const player = gameState.player;
+            
+            gameState.world.npcs.forEach(npc => {
+                const distance = Math.sqrt(
+                    Math.pow(npc.x - player.x, 2) + 
+                    Math.pow(npc.y - player.y, 2)
+                );
+                
+                if (distance < NPC_INTERACTION_DISTANCE) {
+                    startDialog(npc);
+                    return;
+                }
+            });
+        }
+
+        function startDialog(npc) {
+            const dialogs = npcDialogs[npc.type] || ["Hello there!"];
+            const dialog = dialogs[npc.ai.dialogIndex % dialogs.length];
+            
+            gameState.dialog = {
+                active: true,
+                npc: npc,
+                text: dialog,
+                name: getNPCName(npc)
+            };
+            
+            // Advance dialog for next time
+            npc.ai.dialogIndex++;
+            npc.ai.lastSpoke = gameState.frame;
+            
+            // Show dialog UI
+            document.getElementById('dialogBox').style.display = 'block';
+            document.getElementById('dialogName').textContent = gameState.dialog.name;
+            document.getElementById('dialogText').textContent = gameState.dialog.text;
+            
+            console.log(`💬 ${gameState.dialog.name}: "${dialog}"`);
+        }
+
+        function closeDialog() {
+            gameState.dialog.active = false;
+            document.getElementById('dialogBox').style.display = 'none';
+        }
+
+        function getNPCName(npc) {
+            const names = {
+                'villager_woman': ['Sarah', 'Emma', 'Lucy', 'Anna'],
+                'villager_man': ['John', 'Mike', 'Tom', 'David'],
+                'alien_visitor': ['Zyx-99', 'Qorp', 'Bleem', 'Xaltar']
+            };
+            
+            const nameList = names[npc.type] || ['Stranger'];
+            const hash = (npc.x + npc.y) % nameList.length;
+            return nameList[Math.floor(hash)];
+        }
+
+        // Update game with NPC AI
+        function updateGame(deltaTime) {
+            const player = gameState.player;
+            
+            // Update player
+            player.x += player.velocity.x * (deltaTime / 16.67);
+            player.y += player.velocity.y * (deltaTime / 16.67);
+            
+            player.x = Math.max(player.size, Math.min(WORLD_SIZE - player.size, player.x));
+            player.y = Math.max(player.size, Math.min(WORLD_SIZE - player.size, player.y));
+            
+            // Update player animation
+            if (player.isWalking) {
+                player.animTimer += deltaTime;
+                if (player.animTimer > 300) {
+                    player.animFrame = (player.animFrame + 1) % 2;
+                    player.animTimer = 0;
+                }
+            }
+            
+            // Smooth camera follow with enhanced scrolling
+            const cameraSmooth = 0.08;
+            gameState.camera.x += (player.x - gameState.camera.x) * cameraSmooth;
+            gameState.camera.y += (player.y - gameState.camera.y) * cameraSmooth;
+            
+            gameState.camera.zoom += (gameState.camera.targetZoom - gameState.camera.zoom) * 0.1;
+            
+            // Update NPCs with AI
+            updateNPCs(deltaTime);
+            
+            checkCollisions();
+            updateParticles(deltaTime);
+            
+            // Update area based on position
+            updateArea();
+        }
+
+        // Advanced NPC AI system
+        function updateNPCs(deltaTime) {
+            gameState.world.npcs.forEach(npc => {
+                npc.ai.timer += deltaTime;
+                
+                switch (npc.ai.state) {
+                    case 'idle':
+                        npc.isWalking = false;
+                        // Randomly decide to start walking
+                        if (npc.ai.timer > 2000 + Math.random() * 3000) {
+                            // Choose random point within wander radius
+                            const angle = Math.random() * Math.PI * 2;
+                            const distance = Math.random() * npc.ai.wanderRadius;
+                            npc.ai.targetX = npc.ai.homeX + Math.cos(angle) * distance;
+                            npc.ai.targetY = npc.ai.homeY + Math.sin(angle) * distance;
+                            
+                            // Keep within world bounds
+                            npc.ai.targetX = Math.max(50, Math.min(WORLD_SIZE - 50, npc.ai.targetX));
+                            npc.ai.targetY = Math.max(50, Math.min(WORLD_SIZE - 50, npc.ai.targetY));
+                            
+                            npc.ai.state = 'walking';
+                            npc.ai.timer = 0;
+                        }
+                        break;
+                        
+                    case 'walking':
+                        npc.isWalking = true;
+                        
+                        // Move toward target
+                        const dx = npc.ai.targetX - npc.x;
+                        const dy = npc.ai.targetY - npc.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance > 5) {
+                            // Update angle to face movement direction
+                            npc.angle = Math.atan2(dy, dx);
+                            
+                            // Move
+                            npc.x += (dx / distance) * npc.ai.speed * (deltaTime / 16.67);
+                            npc.y += (dy / distance) * npc.ai.speed * (deltaTime / 16.67);
+                            
+                            // Update walking animation
+                            npc.animTimer += deltaTime;
+                            if (npc.animTimer > 400) {
+                                npc.animFrame = (npc.animFrame + 1) % 2;
+                                npc.animTimer = 0;
+                            }
+                        } else {
+                            // Reached target, go back to idle
+                            npc.ai.state = 'idle';
+                            npc.ai.timer = 0;
+                            npc.isWalking = false;
+                        }
+                        break;
+                }
+                
+                // NPCs avoid solid objects
+                avoidObstacles(npc);
+            });
+        }
+
+        function avoidObstacles(npc) {
+            gameState.world.objects.forEach(obj => {
+                if (!obj.solid) return;
+                
+                const distance = Math.sqrt(
+                    Math.pow(obj.x - npc.x, 2) + 
+                    Math.pow(obj.y - npc.y, 2)
+                );
+                
+                if (distance < (obj.size + npc.size) / 2 + 20) {
+                    // Push NPC away from obstacle
+                    const pushX = (npc.x - obj.x) / distance;
+                    const pushY = (npc.y - obj.y) / distance;
+                    npc.x += pushX * 2;
+                    npc.y += pushY * 2;
+                }
+            });
+        }
+
+        function updateArea() {
+            const player = gameState.player;
+            const centerDistance = Math.sqrt(
+                Math.pow(player.x - WORLD_SIZE/2, 2) + 
+                Math.pow(player.y - WORLD_SIZE/2, 2)
+            );
+            
+            let area = 'Village';
+            if (centerDistance > WORLD_SIZE * 0.2) area = 'Outskirts';
+            if (centerDistance > WORLD_SIZE * 0.35) area = 'Wilderness';
+            if (centerDistance > WORLD_SIZE * 0.45) area = 'Frontier';
+            
+            document.getElementById('currentArea').textContent = area;
+        }
+
+        function checkCollisions() {
+            const player = gameState.player;
+            
+            gameState.world.objects.forEach((obj, index) => {
+                const distance = Math.sqrt(
+                    Math.pow(obj.x - player.x, 2) + 
+                    Math.pow(obj.y - player.y, 2)
+                );
+                
+                if (distance < (obj.size + player.size) / 2) {
+                    if (obj.collectible) {
+                        if (obj.type === 'coin') gameState.player.gold += Math.floor(obj.value);
+                        else if (obj.type === 'gem') gameState.player.xp += Math.floor(obj.value);
+                        
+                        createParticleEffect(obj.x, obj.y, obj.type);
+                        gameState.world.objects.splice(index, 1);
+                        console.log(`💎 Collected ${obj.type}!`);
+                    } else if (obj.solid) {
+                        // Push back collision
+                        const pushX = (player.x - obj.x) / distance;
+                        const pushY = (player.y - obj.y) / distance;
+                        player.x = obj.x + pushX * ((obj.size + player.size) / 2);
+                        player.y = obj.y + pushY * ((obj.size + player.size) / 2);
+                    }
+                }
+            });
+        }
+
+        function createParticleEffect(x, y, type) {
+            const colors = {
+                'coin': '#FFD700',
+                'gem': '#9932CC'
+            };
+            
+            for (let i = 0; i < 12; i++) {
+                gameState.world.particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 0.5) * 6,
+                    life: 1.0,
+                    color: colors[type] || '#FFFFFF',
+                    size: Math.random() * 6 + 2
+                });
+            }
+        }
+
+        function updateParticles(deltaTime) {
+            gameState.world.particles.forEach((particle, index) => {
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+                particle.vy += 0.15; // Gravity
+                particle.life -= deltaTime / 1200;
+                
+                if (particle.life <= 0) {
+                    gameState.world.particles.splice(index, 1);
+                }
+            });
+        }
+
+        // Enhanced rendering with proper sprite handling
+        function render() {
+            const camera = gameState.camera;
+            
+            // Clear screen
+            const gradient = ctx.createRadialGradient(
+                canvas.width/2, canvas.height/2, 0,
+                canvas.width/2, canvas.height/2, canvas.width/2
+            );
+            gradient.addColorStop(0, '#87CEEB');
+            gradient.addColorStop(0.7, '#98FB98');
+            gradient.addColorStop(1, '#228B22');
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.save();
+            
+            // Enhanced camera with smooth scrolling
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.scale(camera.zoom, camera.zoom);
+            ctx.translate(-camera.x, -camera.y);
+            
+            // Camera shake
+            if (camera.shake.intensity > 0) {
+                ctx.translate(
+                    (Math.random() - 0.5) * camera.shake.intensity,
+                    (Math.random() - 0.5) * camera.shake.intensity
+                );
+                camera.shake.intensity *= 0.92;
+            }
+            
+            renderBackground();
+            renderEnvironment();
+            renderNPCs();
+            renderPlayer();
+            renderParticles();
+            
+            ctx.restore();
+            
+            renderUI();
+        }
+
+        function renderBackground() {
+            // Render scrolling tiled background
+            const camera = gameState.camera;
+            const viewPadding = 200;
+            
+            gameState.world.background.forEach(tile => {
+                // Cull off-screen tiles for performance
+                if (tile.x < camera.x - canvas.width/2 - viewPadding || 
+                    tile.x > camera.x + canvas.width/2 + viewPadding ||
+                    tile.y < camera.y - canvas.height/2 - viewPadding || 
+                    tile.y > camera.y + canvas.height/2 + viewPadding) {
+                    return;
+                }
+                
+                const sprite = gameState.assets.sprites[tile.type + '_bg'];
+                if (sprite && sprite.width) {
+                    ctx.drawImage(sprite, tile.x, tile.y, tile.size, tile.size);
+                } else {
+                    // Fallback colored tile
+                    ctx.fillStyle = tile.type === 'desert' ? '#DEB887' : '#32CD32';
+                    ctx.fillRect(tile.x, tile.y, tile.size, tile.size);
+                }
+            });
+        }
+
+        function renderEnvironment() {
+            const camera = gameState.camera;
+            
+            gameState.world.objects.forEach(obj => {
+                // Improved culling
+                if (obj.x < camera.x - canvas.width || obj.x > camera.x + canvas.width ||
+                    obj.y < camera.y - canvas.height || obj.y > camera.y + canvas.height) {
+                    return;
+                }
+                
+                // Floating animation for collectibles
+                let offsetY = 0;
+                if (obj.collectible) {
+                    offsetY = Math.sin(gameState.frame * 0.1 + (obj.floatOffset || 0)) * 4;
+                    
+                    ctx.fillStyle = obj.type === 'coin' ? '#FFD700' : '#9932CC';
+                    ctx.fillRect(
+                        obj.x - obj.size/2, 
+                        obj.y - obj.size/2 + offsetY, 
+                        obj.size, obj.size
+                    );
+                    return;
+                }
+                
+                // Render environment sprites
+                const sprite = gameState.assets.sprites[obj.type];
+                if (sprite && sprite.width) {
+                    ctx.drawImage(
+                        sprite, 
+                        obj.x - obj.size/2, 
+                        obj.y - obj.size/2, 
+                        obj.size, obj.size
+                    );
+                } else {
+                    // Fallback
+                    ctx.fillStyle = getSpriteColor(obj.type);
+                    ctx.fillRect(
+                        obj.x - obj.size/2, 
+                        obj.y - obj.size/2, 
+                        obj.size, obj.size
+                    );
+                }
+            });
+        }
+
+        function renderNPCs() {
+            const camera = gameState.camera;
+            
+            gameState.world.npcs.forEach(npc => {
+                // Cull off-screen NPCs
+                if (npc.x < camera.x - canvas.width || npc.x > camera.x + canvas.width ||
+                    npc.y < camera.y - canvas.height || npc.y > camera.y + canvas.height) {
+                    return;
+                }
+                
+                ctx.save();
+                ctx.translate(npc.x, npc.y);
+                ctx.rotate(npc.angle);
+                
+                // Choose sprite based on animation state
+                let spriteName = npc.sprite;
+                if (npc.isWalking && npc.sprite === 'woman_idle') {
+                    spriteName = npc.animFrame === 0 ? 'woman_walk1' : 'woman_walk2';
+                } else if (npc.isWalking && npc.sprite === 'player_idle') {
+                    spriteName = npc.animFrame === 0 ? 'player_walk1' : 'player_walk2';
+                }
+                
+                const sprite = gameState.assets.sprites[spriteName] || gameState.assets.sprites[npc.sprite];
+                if (sprite && sprite.width) {
+                    ctx.drawImage(
+                        sprite, 
+                        -npc.size/2, -npc.size/2, 
+                        npc.size, npc.size
+                    );
+                } else {
+                    // Fallback NPC
+                    ctx.fillStyle = npc.sprite.includes('alien') ? '#1E90FF' : '#FF69B4';
+                    ctx.fillRect(-npc.size/2, -npc.size/2, npc.size, npc.size);
+                    
+                    // Direction indicator
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(npc.size/4, -2, npc.size/4, 4);
+                }
+                
+                // Interaction indicator
+                const playerDistance = Math.sqrt(
+                    Math.pow(npc.x - gameState.player.x, 2) + 
+                    Math.pow(npc.y - gameState.player.y, 2)
+                );
+                
+                if (playerDistance < NPC_INTERACTION_DISTANCE) {
+                    // Draw speech bubble indicator
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                    ctx.fillRect(-8, -npc.size/2 - 20, 16, 12);
+                    ctx.fillStyle = '#000000';
+                    ctx.font = '12px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('💬', 0, -npc.size/2 - 10);
+                }
+                
+                ctx.restore();
+            });
+        }
+
+        function renderPlayer() {
+            const player = gameState.player;
+            
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            ctx.rotate(player.angle);
+            
+            // Choose player sprite based on movement
+            let playerSpriteName = 'player_idle';
+            if (player.isWalking) {
+                playerSpriteName = player.animFrame === 0 ? 'player_walk1' : 'player_walk2';
+            }
+            
+            const playerSprite = gameState.assets.sprites[playerSpriteName];
+            if (playerSprite && playerSprite.width) {
+                ctx.drawImage(
+                    playerSprite, 
+                    -player.size/2, -player.size/2, 
+                    player.size, player.size
+                );
+            } else {
+                // Fallback player
+                ctx.fillStyle = '#4169E1';
+                ctx.fillRect(-player.size/2, -player.size/2, player.size, player.size);
+                
+                // Direction indicator
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(player.size/4, -2, player.size/4, 4);
+            }
+            
+            ctx.restore();
+        }
+
+        function renderParticles() {
+            gameState.world.particles.forEach(particle => {
+                ctx.globalAlpha = particle.life;
+                ctx.fillStyle = particle.color;
+                ctx.fillRect(
+                    particle.x - particle.size/2, 
+                    particle.y - particle.size/2, 
+                    particle.size, particle.size
+                );
+                ctx.globalAlpha = 1.0;
+            });
+        }
+
+        function getSpriteColor(type) {
+            const colors = {
+                'tree': '#228B22', 'bush1': '#32CD32', 'house1': '#8B4513',
+                'castle': '#696969', 'tower': '#A9A9A9'
+            };
+            return colors[type] || '#666666';
+        }
+
+        function renderUI() {
+            document.getElementById('playerHP').textContent = Math.floor(gameState.player.hp);
+            document.getElementById('playerGold').textContent = gameState.player.gold;
+            document.getElementById('playerXP').textContent = gameState.player.xp;
+            document.getElementById('npcCount').textContent = gameState.world.npcs.length;
+            
+            const healthPercent = (gameState.player.hp / gameState.player.maxHP) * 100;
+            document.getElementById('healthFill').style.width = healthPercent + '%';
+        }
+
+        // Game loop
+        function gameLoop(currentTime) {
+            const deltaTime = currentTime - gameState.lastTime;
+            gameState.lastTime = currentTime;
+            gameState.frame++;
+            
+            handleInput(deltaTime);
+            updateGame(deltaTime);
+            render();
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            gameState.input.keys[e.code] = true;
+            
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (!gameState.dialog.active) {
+                    gameState.camera.shake.intensity = 8;
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            gameState.input.keys[e.code] = false;
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            gameState.input.mouse.x = e.clientX - rect.left;
+            gameState.input.mouse.y = e.clientY - rect.top;
+        });
+
+        // Initialize game
+        function initGame() {
+            console.log('🎮 Initializing Ultimate Kenney RPG...');
+            loadKenneyAssets();
+            generateWorld();
+            console.log('✅ Game initialized with NPCs and character sprites!');
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start the game
+        initGame();
+    </script>
+</body>
+</html>

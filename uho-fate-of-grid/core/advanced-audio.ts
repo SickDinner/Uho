@@ -339,7 +339,9 @@ export class AdvancedAudioEngine {
 
     if (newZone !== this.currentZone) {
       this.transitionToZone(newZone);
-      this.currentZone = newZone || this.currentZone;
+      if (newZone) {
+        this.currentZone = newZone;
+      }
     }
   }
 

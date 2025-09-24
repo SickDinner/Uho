@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UHO: Fate of the Grid - Täysi Peli</title>
+  <meta name="description" content="Suomalainen verkkoselainpeli - synkkä hiekkalaatikko elämänsimulaatio" />
+  <style>
+    /* Perustyyli */
+    * {
+      box-sizing: border-box;
+    }
+    
+    body {
+      margin: 0;
+      padding: 0;
+      background: #0a0a0a;
+      font-family: 'Courier New', 'Consolas', monospace;
+      color: #ffffff;
+      overflow: hidden;
+      user-select: none;
+    }
+    
+    /* Pelin container */
+    #gameContainer {
+      display: flex;
+      width: 100vw;
+      height: 100vh;
+    }
+    
+    /* Canvas tyyli - responsiiviinen ja skaalautuva */
+    #gameCanvas {
+      flex: 1;
+      background: #000;
+      border: 2px solid #333;
+      cursor: crosshair;
+      width: 100%;
+      height: 100%;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      
+      /* Pixel art rendering */
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: -webkit-crisp-edges;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    
+    /* UI Panel */
+    #ui {
+      width: 320px;
+      background: linear-gradient(180deg, #1a1a1a 0%, #2a2a2a 100%);
+      border-left: 2px solid #333;
+      padding: 15px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    
+    /* UI Paneelit */
+    .ui-panel {
+      background: linear-gradient(145deg, #2a2a2a, #333333);
+      border: 1px solid #555;
+      border-radius: 5px;
+      padding: 12px;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+    }
+    
+    .ui-title {
+      color: #ffff00;
+      font-weight: bold;
+      font-size: 14px;
+      margin-bottom: 10px;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+      border-bottom: 1px solid #555;
+      padding-bottom: 5px;
+    }
+    
+    /* Tilastojen tyyli */
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      font-size: 11px;
+      color: #e0e0e0;
+    }
+    
+    .stat-row span:first-child {
+      color: #cccccc;
+    }
+    
+    .stat-row span:last-child {
+      color: #ffff88;
+      font-weight: bold;
+      min-width: 30px;
+      text-align: right;
+    }
+    
+    /* Tarve-baarien tyyli */
+    .need-section {
+      margin-bottom: 8px;
+    }
+    
+    .need-label {
+      font-size: 11px;
+      color: #cccccc;
+      margin-bottom: 3px;
+    }
+    
+    .need-bar {
+      width: 100%;
+      height: 10px;
+      background: #333;
+      border: 1px solid #666;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    
+    .need-fill {
+      height: 100%;
+      transition: width 0.5s ease, background-color 0.3s ease;
+      border-radius: 1px;
+    }
+    
+    .need-fill.good {
+      background: linear-gradient(90deg, #00aa00, #00ff00);
+      box-shadow: inset 0 1px 2px rgba(255,255,255,0.3);
+    }
+    
+    .need-fill.medium {
+      background: linear-gradient(90deg, #aaaa00, #ffff00);
+      box-shadow: inset 0 1px 2px rgba(255,255,255,0.3);
+    }
+    
+    .need-fill.low {
+      background: linear-gradient(90deg, #cc6600, #ff8800);
+      box-shadow: inset 0 1px 2px rgba(255,255,255,0.3);
+    }
+    
+    .need-fill.critical {
+      background: linear-gradient(90deg, #aa0000, #ff0000);
+      box-shadow: inset 0 1px 2px rgba(255,255,255,0.3);
+      animation: pulse 1s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    
+    /* Viestiloki */
+    #messageLog {
+      height: 220px;
+      overflow-y: auto;
+      background: #111;
+      border: 1px solid #444;
+      border-radius: 3px;
+      padding: 8px;
+      font-size: 10px;
+      line-height: 1.4;
+      scrollbar-width: thin;
+      scrollbar-color: #666 #333;
+    }
+    
+    #messageLog::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    #messageLog::-webkit-scrollbar-track {
+      background: #333;
+    }
+    
+    #messageLog::-webkit-scrollbar-thumb {
+      background: #666;
+      border-radius: 4px;
+    }
+    
+    .message {
+      margin-bottom: 4px;
+      padding: 2px 4px;
+      border-radius: 2px;
+      word-wrap: break-word;
+    }
+    
+    .message.normal {
+      color: #e0e0e0;
+    }
+    
+    .message.system {
+      color: #ffff00;
+      background: rgba(255, 255, 0, 0.1);
+      font-weight: bold;
+    }
+    
+    .message.combat {
+      color: #ff6666;
+      background: rgba(255, 102, 102, 0.1);
+    }
+    
+    .message.drug {
+      color: #ff66ff;
+      background: rgba(255, 102, 255, 0.1);
+      font-style: italic;
+    }
+    
+    .message.police {
+      color: #ff0000;
+      background: rgba(255, 0, 0, 0.1);
+      font-weight: bold;
+    }
+    
+    /* Tila-indikaattorit */
+    .status-indicator {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: bold;
+      margin-left: 5px;
+    }
+    
+    .status-indicator.low-heat {
+      background: #004400;
+      color: #00ff00;
+    }
+    
+    .status-indicator.medium-heat {
+      background: #444400;
+      color: #ffff00;
+    }
+    
+    .status-indicator.high-heat {
+      background: #440000;
+      color: #ff0000;
+      animation: pulse 2s infinite;
+    }
+    
+    /* Pelin lataustyyli */
+    .loading {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.9);
+      color: #ffff00;
+      padding: 20px;
+      border: 2px solid #ffff00;
+      border-radius: 10px;
+      text-align: center;
+      z-index: 1000;
+    }
+    
+    .loading-spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid #ffff00;
+      border-top: 2px solid transparent;
+      border-radius: 50%;
+      display: inline-block;
+      animation: spin 1s linear infinite;
+      margin-right: 10px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    /* Responsiivisuus */
+    @media (max-width: 1200px) {
+      #ui {
+        width: 280px;
+      }
+      
+      .stat-row {
+        font-size: 10px;
+      }
+    }
+    
+    @media (max-width: 900px) {
+      #gameContainer {
+        flex-direction: column;
+      }
+      
+      #ui {
+        width: 100%;
+        height: 200px;
+        flex-direction: row;
+        overflow-x: auto;
+      }
+      
+      .ui-panel {
+        min-width: 200px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Lataus-indikaattori -->
+  <div id="loadingIndicator" class="loading">
+    <div class="loading-spinner"></div>
+    Ladataan UHO: Fate of the Grid...
+  </div>
+  
+  <!-- Pelin pääcontainer -->
+  <div id="gameContainer">
+    <!-- Pelicanvas - dimensions set in JavaScript for proper scaling -->
+    <canvas id="gameCanvas"></canvas>
+    
+    <!-- UI paneeli -->
+    <div id="ui">
+      <!-- Tilastopaneeli -->
+      <div class="ui-panel">
+        <div class="ui-title">📊 TILASTOT</div>
+        <div id="statsPanel">
+          <!-- Tilastot täytetään dynaamisesti -->
+        </div>
+      </div>
+      
+      <!-- Tarpeet-paneeli -->
+      <div class="ui-panel">
+        <div class="ui-title">⚡ TARPEET</div>
+        <div id="needsPanel">
+          <!-- Tarpeet täytetään dynaamisesti -->
+        </div>
+      </div>
+      
+      <!-- Tila-paneeli -->
+      <div class="ui-panel">
+        <div class="ui-title">💰 TILA</div>
+        <div id="statusPanel">
+          <div class="stat-row">
+            <span>💵 Käteinen:</span>
+            <span id="cash">0€</span>
+          </div>
+          <div class="stat-row">
+            <span>🏦 Pankki:</span>
+            <span id="bank">0€</span>
+          </div>
+          <div class="stat-row">
+            <span>🚨 Kuumuus:</span>
+            <span id="heat">0</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Viestiloki-paneeli -->
+      <div class="ui-panel">
+        <div class="ui-title">📨 VIESTIT</div>
+        <div id="messageLog">
+          <!-- Viestit täytetään dynaamisesti -->
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Lataa peli -->
+  <script type="module" src="/src/main-uho.ts"></script>
+  
+  <!-- Piilota lataus-indikaattori kun peli on ladattu -->
+  <script>
+    // Piilota lataus-indikaattori muutaman sekunnin kuluttua
+    setTimeout(() => {
+      const loading = document.getElementById('loadingIndicator');
+      if (loading) {
+        loading.style.opacity = '0';
+        loading.style.transition = 'opacity 0.5s ease';
+        setTimeout(() => loading.remove(), 500);
+      }
+    }, 2000);
+    
+    // Estä kontekstivalikko canvasissa
+    document.getElementById('gameCanvas')?.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+    });
+    
+    // Fokusoi canvas kun sivu latautuu
+    window.addEventListener('load', () => {
+      document.getElementById('gameCanvas')?.focus();
+    });
+  </script>
+</body>
+</html>

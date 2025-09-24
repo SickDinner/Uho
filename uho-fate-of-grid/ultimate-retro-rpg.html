@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🗡️ ULTIMATE RETRO RPG - ZELDA/ROGUE STYLE 🗡️</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #0a0a0a;
+            color: #ffffff;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        h1 {
+            color: #ffdd00;
+            text-shadow: 3px 3px 6px #000000;
+            margin: 10px 0;
+            font-size: 2em;
+            text-align: center;
+        }
+
+        .game-container {
+            position: relative;
+            border: 4px solid #8B4513;
+            background: #2F4F2F;
+            box-shadow: 0 0 30px rgba(255, 221, 0, 0.3);
+        }
+
+        #gameCanvas {
+            display: block;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+
+        .ui-overlay {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #8B4513;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            min-width: 150px;
+        }
+
+        .health-bar {
+            width: 100px;
+            height: 8px;
+            background: #440000;
+            border: 1px solid #ffffff;
+            margin: 4px 0;
+            position: relative;
+        }
+
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff0000, #ffaa00);
+            transition: width 0.3s ease;
+        }
+
+        .controls {
+            margin-top: 10px;
+            text-align: center;
+            color: #cccccc;
+        }
+
+        .controls div {
+            margin: 5px 0;
+        }
+
+        .sprite-debug {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 1px solid #333;
+            padding: 10px;
+            font-size: 12px;
+            max-width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🗡️ ULTIMATE RETRO RPG 🗡️</h1>
+    <div class="subtitle">Zelda/Rogue Style • Animated Sprites • Urban Fantasy</div>
+
+    <div class="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <div class="ui-overlay">
+            <div>❤️ HP: <span id="playerHP">100</span>/100</div>
+            <div class="health-bar">
+                <div class="health-fill" id="healthFill" style="width: 100%"></div>
+            </div>
+            <div>💰 Gold: <span id="playerGold">50</span></div>
+            <div>⚡ Lvl: <span id="playerLevel">1</span></div>
+            <div>🗺️ Floor: <span id="currentFloor">1</span></div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <div><strong>WASD</strong> or <strong>Arrow Keys</strong>: Move</div>
+        <div><strong>Space</strong>: Attack | <strong>E</strong>: Interact</div>
+        <div><strong>I</strong>: Inventory | <strong>M</strong>: Map</div>
+    </div>
+
+    <div class="sprite-debug" id="debugInfo">
+        <div>Frame: <span id="frameCount">0</span></div>
+        <div>Animation: <span id="currentAnim">idle_down</span></div>
+        <div>Sprites: <span id="spriteCount">0</span></div>
+    </div>
+
+    <script>
+        console.log('🗡️ Starting Ultimate Retro RPG...');
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Disable image smoothing for pixel art
+        ctx.imageSmoothingEnabled = false;
+        ctx.webkitImageSmoothingEnabled = false;
+        ctx.mozImageSmoothingEnabled = false;
+        ctx.msImageSmoothingEnabled = false;
+
+        // Game constants
+        const TILE_SIZE = 32;
+        const SPRITE_SIZE = 16; // Original sprite size
+        const SCALE = 2; // Scale factor
+        const WORLD_WIDTH = 25;
+        const WORLD_HEIGHT = 19;
+
+        // Game state
+        let gameState = {
+            player: {
+                x: 12,
+                y: 10,
+                pixelX: 12 * TILE_SIZE,
+                pixelY: 10 * TILE_SIZE,
+                hp: 100,
+                maxHP: 100,
+                gold: 50,
+                level: 1,
+                facing: 'down',
+                isMoving: false,
+                animFrame: 0,
+                animTimer: 0,
+                inventory: []
+            },
+            entities: [],
+            items: [],
+            world: [],
+            camera: { x: 0, y: 0 },
+            frame: 0,
+            keys: {},
+            lastMoveTime: 0
+        };
+
+        // Create sprite sheets using Canvas API (procedural pixel art)
+        const sprites = {
+            player: null,
+            enemies: null,
+            items: null,
+            tiles: null,
+            ui: null
+        };
+
+        // Initialize sprites
+        function createSpriteSheets() {
+            console.log('🎨 Creating retro sprite sheets...');
+            
+            // Player sprite sheet (Zelda/Rogue style hero)
+            sprites.player = createCanvas(416, 64); // 26 frames x 4 directions
+            const playerCtx = sprites.player.getContext('2d');
+            
+            // Draw player sprites (16x16 each)
+            for (let row = 0; row < 4; row++) { // 4 directions
+                for (let col = 0; col < 4; col++) { // 4 animation frames
+                    drawPlayerSprite(playerCtx, col * 16, row * 16, row, col);
+                }
+            }
+            
+            // Enemy sprites (orcs, skeletons, etc.)
+            sprites.enemies = createCanvas(256, 128);
+            const enemyCtx = sprites.enemies.getContext('2d');
+            drawEnemySprites(enemyCtx);
+            
+            // Item sprites (potions, weapons, etc.)
+            sprites.items = createCanvas(128, 128);
+            const itemCtx = sprites.items.getContext('2d');
+            drawItemSprites(itemCtx);
+            
+            // Tile sprites (walls, floors, doors)
+            sprites.tiles = createCanvas(256, 256);
+            const tileCtx = sprites.tiles.getContext('2d');
+            drawTileSprites(tileCtx);
+            
+            console.log('✅ Sprite sheets created!');
+        }
+
+        function createCanvas(width, height) {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            return canvas;
+        }
+
+        // Draw detailed player sprite (Zelda-like hero)
+        function drawPlayerSprite(ctx, x, y, direction, frame) {
+            const colors = {
+                skin: '#FFDBAC',
+                hair: '#8B4513',
+                tunic: '#228B22',
+                belt: '#8B4513',
+                sword: '#C0C0C0',
+                boots: '#654321'
+            };
+
+            ctx.fillStyle = colors.skin;
+            
+            if (direction === 0) { // Down
+                // Head
+                ctx.fillRect(x + 6, y + 2, 4, 4);
+                // Body
+                ctx.fillStyle = colors.tunic;
+                ctx.fillRect(x + 5, y + 6, 6, 6);
+                // Arms
+                ctx.fillRect(x + 3, y + 7, 2, 3);
+                ctx.fillRect(x + 11, y + 7, 2, 3);
+                // Legs
+                ctx.fillRect(x + 5, y + 12, 2, 3);
+                ctx.fillRect(x + 9, y + 12, 2, 3);
+                // Hair
+                ctx.fillStyle = colors.hair;
+                ctx.fillRect(x + 5, y + 1, 6, 2);
+                // Sword (if frame 1 or 3)
+                if (frame === 1 || frame === 3) {
+                    ctx.fillStyle = colors.sword;
+                    ctx.fillRect(x + 13, y + 4, 1, 8);
+                    ctx.fillStyle = colors.belt;
+                    ctx.fillRect(x + 13, y + 3, 1, 1);
+                }
+            } else if (direction === 1) { // Up
+                // Similar structure for up direction
+                ctx.fillRect(x + 6, y + 2, 4, 4);
+                ctx.fillStyle = colors.tunic;
+                ctx.fillRect(x + 5, y + 6, 6, 6);
+                ctx.fillStyle = colors.hair;
+                ctx.fillRect(x + 5, y + 1, 6, 2);
+            } else if (direction === 2) { // Right
+                // Side view
+                ctx.fillRect(x + 7, y + 2, 3, 4);
+                ctx.fillStyle = colors.tunic;
+                ctx.fillRect(x + 6, y + 6, 6, 6);
+                ctx.fillStyle = colors.hair;
+                ctx.fillRect(x + 6, y + 1, 5, 2);
+            } else { // Left
+                // Mirror of right
+                ctx.fillRect(x + 6, y + 2, 3, 4);
+                ctx.fillStyle = colors.tunic;
+                ctx.fillRect(x + 4, y + 6, 6, 6);
+                ctx.fillStyle = colors.hair;
+                ctx.fillRect(x + 5, y + 1, 5, 2);
+            }
+
+            // Add walking animation offset for legs
+            if (frame === 1 || frame === 3) {
+                // Leg movement
+                ctx.fillStyle = colors.tunic;
+                if (direction === 0 || direction === 1) {
+                    ctx.fillRect(x + 5 + (frame === 1 ? -1 : 1), y + 12, 2, 3);
+                }
+            }
+        }
+
+        function drawEnemySprites(ctx) {
+            // Orc sprite (green, menacing)
+            const colors = {
+                orc: '#2D5016',
+                eyes: '#FF0000',
+                tusks: '#FFFFFF'
+            };
+
+            // Draw orc at (0,0)
+            ctx.fillStyle = colors.orc;
+            ctx.fillRect(5, 2, 6, 8); // Body
+            ctx.fillRect(6, 1, 4, 3); // Head
+            ctx.fillRect(3, 6, 2, 4); // Arms
+            ctx.fillRect(13, 6, 2, 4);
+            ctx.fillRect(5, 10, 2, 4); // Legs
+            ctx.fillRect(9, 10, 2, 4);
+            
+            // Eyes
+            ctx.fillStyle = colors.eyes;
+            ctx.fillRect(6, 2, 1, 1);
+            ctx.fillRect(9, 2, 1, 1);
+            
+            // Tusks
+            ctx.fillStyle = colors.tusks;
+            ctx.fillRect(6, 4, 1, 1);
+            ctx.fillRect(9, 4, 1, 1);
+
+            // Skeleton at (16,0)
+            ctx.fillStyle = '#E6E6FA';
+            ctx.fillRect(16 + 5, 2, 6, 8);
+            ctx.fillRect(16 + 6, 1, 4, 3);
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(16 + 7, 2, 1, 1);
+            ctx.fillRect(16 + 8, 2, 1, 1);
+
+            // Goblin at (32,0)
+            ctx.fillStyle = '#556B2F';
+            ctx.fillRect(32 + 6, 3, 4, 6);
+            ctx.fillRect(32 + 7, 2, 2, 2);
+            ctx.fillStyle = '#FF0000';
+            ctx.fillRect(32 + 7, 2, 1, 1);
+        }
+
+        function drawItemSprites(ctx) {
+            // Health potion (red)
+            ctx.fillStyle = '#8B0000';
+            ctx.fillRect(5, 4, 6, 8);
+            ctx.fillStyle = '#FF0000';
+            ctx.fillRect(6, 5, 4, 6);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(7, 6, 2, 1);
+
+            // Gold coin
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(18, 5, 6, 6);
+            ctx.fillStyle = '#FFA500';
+            ctx.fillRect(19, 6, 4, 4);
+
+            // Sword
+            ctx.fillStyle = '#C0C0C0';
+            ctx.fillRect(32 + 7, 2, 2, 10);
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(32 + 6, 10, 4, 3);
+
+            // Key
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(48 + 6, 6, 4, 2);
+            ctx.fillRect(48 + 6, 4, 2, 4);
+            ctx.fillRect(48 + 4, 4, 2, 1);
+        }
+
+        function drawTileSprites(ctx) {
+            // Stone floor
+            ctx.fillStyle = '#696969';
+            ctx.fillRect(0, 0, 16, 16);
+            ctx.fillStyle = '#808080';
+            ctx.fillRect(2, 2, 4, 4);
+            ctx.fillRect(10, 8, 3, 3);
+
+            // Stone wall
+            ctx.fillStyle = '#2F4F4F';
+            ctx.fillRect(16, 0, 16, 16);
+            ctx.fillStyle = '#696969';
+            ctx.fillRect(17, 1, 6, 6);
+            ctx.fillRect(25, 9, 5, 5);
+
+            // Door
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(32, 0, 16, 16);
+            ctx.fillStyle = '#654321';
+            ctx.fillRect(34, 2, 12, 12);
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(42, 8, 2, 2); // Handle
+
+            // Grass
+            ctx.fillStyle = '#228B22';
+            ctx.fillRect(48, 0, 16, 16);
+            ctx.fillStyle = '#32CD32';
+            ctx.fillRect(50, 2, 2, 6);
+            ctx.fillRect(54, 4, 2, 4);
+            ctx.fillRect(58, 1, 2, 7);
+            ctx.fillRect(62, 3, 2, 5);
+        }
+
+        // Generate dungeon world
+        function generateWorld() {
+            console.log('🗺️ Generating retro dungeon...');
+            gameState.world = [];
+            
+            for (let y = 0; y < WORLD_HEIGHT; y++) {
+                gameState.world[y] = [];
+                for (let x = 0; x < WORLD_WIDTH; x++) {
+                    let tile;
+                    if (x === 0 || x === WORLD_WIDTH-1 || y === 0 || y === WORLD_HEIGHT-1) {
+                        tile = 'wall'; // Walls around edges
+                    } else if (Math.random() < 0.15) {
+                        tile = 'wall'; // Random walls
+                    } else if (Math.random() < 0.05) {
+                        tile = 'door'; // Random doors
+                    } else {
+                        tile = 'floor'; // Floor tiles
+                    }
+                    gameState.world[y][x] = tile;
+                }
+            }
+            
+            // Ensure player starting position is clear
+            gameState.world[gameState.player.y][gameState.player.x] = 'floor';
+            gameState.world[gameState.player.y-1][gameState.player.x] = 'floor';
+            gameState.world[gameState.player.y+1][gameState.player.x] = 'floor';
+            gameState.world[gameState.player.y][gameState.player.x-1] = 'floor';
+            gameState.world[gameState.player.y][gameState.player.x+1] = 'floor';
+            
+            // Add some enemies
+            for (let i = 0; i < 8; i++) {
+                let x, y;
+                do {
+                    x = Math.floor(Math.random() * (WORLD_WIDTH-2)) + 1;
+                    y = Math.floor(Math.random() * (WORLD_HEIGHT-2)) + 1;
+                } while (gameState.world[y][x] !== 'floor' || 
+                         (Math.abs(x - gameState.player.x) < 3 && Math.abs(y - gameState.player.y) < 3));
+                
+                const enemyTypes = ['orc', 'skeleton', 'goblin'];
+                gameState.entities.push({
+                    type: 'enemy',
+                    subtype: enemyTypes[Math.floor(Math.random() * enemyTypes.length)],
+                    x: x,
+                    y: y,
+                    pixelX: x * TILE_SIZE,
+                    pixelY: y * TILE_SIZE,
+                    hp: 30 + Math.random() * 20,
+                    maxHP: 50,
+                    facing: 'down',
+                    animFrame: 0,
+                    animTimer: 0,
+                    ai: { lastMoveTime: 0, direction: Math.random() * 4 }
+                });
+            }
+            
+            // Add some items
+            for (let i = 0; i < 6; i++) {
+                let x, y;
+                do {
+                    x = Math.floor(Math.random() * (WORLD_WIDTH-2)) + 1;
+                    y = Math.floor(Math.random() * (WORLD_HEIGHT-2)) + 1;
+                } while (gameState.world[y][x] !== 'floor');
+                
+                const itemTypes = ['potion', 'gold', 'sword', 'key'];
+                gameState.items.push({
+                    type: itemTypes[Math.floor(Math.random() * itemTypes.length)],
+                    x: x,
+                    y: y,
+                    pixelX: x * TILE_SIZE,
+                    pixelY: y * TILE_SIZE
+                });
+            }
+            
+            console.log(`✅ World generated: ${gameState.entities.length} enemies, ${gameState.items.length} items`);
+        }
+
+        // Input handling
+        function handleInput() {
+            const now = Date.now();
+            if (now - gameState.lastMoveTime < 150) return; // Movement delay
+            
+            let moved = false;
+            let newX = gameState.player.x;
+            let newY = gameState.player.y;
+            
+            if (gameState.keys['KeyW'] || gameState.keys['ArrowUp']) {
+                newY--;
+                gameState.player.facing = 'up';
+                moved = true;
+            } else if (gameState.keys['KeyS'] || gameState.keys['ArrowDown']) {
+                newY++;
+                gameState.player.facing = 'down';
+                moved = true;
+            } else if (gameState.keys['KeyA'] || gameState.keys['ArrowLeft']) {
+                newX--;
+                gameState.player.facing = 'left';
+                moved = true;
+            } else if (gameState.keys['KeyD'] || gameState.keys['ArrowRight']) {
+                newX++;
+                gameState.player.facing = 'right';
+                moved = true;
+            }
+            
+            if (moved && isValidMove(newX, newY)) {
+                gameState.player.x = newX;
+                gameState.player.y = newY;
+                gameState.player.pixelX = newX * TILE_SIZE;
+                gameState.player.pixelY = newY * TILE_SIZE;
+                gameState.player.isMoving = true;
+                gameState.lastMoveTime = now;
+                
+                // Check for item collection
+                checkItemCollection();
+                
+                // Check for enemy combat
+                checkCombat();
+            }
+        }
+
+        function isValidMove(x, y) {
+            if (x < 0 || x >= WORLD_WIDTH || y < 0 || y >= WORLD_HEIGHT) return false;
+            const tile = gameState.world[y][x];
+            return tile === 'floor' || tile === 'door';
+        }
+
+        function checkItemCollection() {
+            for (let i = gameState.items.length - 1; i >= 0; i--) {
+                const item = gameState.items[i];
+                if (item.x === gameState.player.x && item.y === gameState.player.y) {
+                    collectItem(item, i);
+                }
+            }
+        }
+
+        function collectItem(item, index) {
+            switch (item.type) {
+                case 'potion':
+                    gameState.player.hp = Math.min(gameState.player.maxHP, gameState.player.hp + 25);
+                    console.log('🧪 Health restored!');
+                    break;
+                case 'gold':
+                    gameState.player.gold += Math.floor(Math.random() * 20) + 5;
+                    console.log('💰 Found gold!');
+                    break;
+                case 'sword':
+                    console.log('⚔️ Found a sword!');
+                    break;
+                case 'key':
+                    console.log('🗝️ Found a key!');
+                    break;
+            }
+            gameState.items.splice(index, 1);
+        }
+
+        function checkCombat() {
+            gameState.entities.forEach((enemy, index) => {
+                if (enemy.x === gameState.player.x && enemy.y === gameState.player.y) {
+                    // Combat!
+                    enemy.hp -= Math.floor(Math.random() * 15) + 10;
+                    gameState.player.hp -= Math.floor(Math.random() * 8) + 2;
+                    
+                    if (enemy.hp <= 0) {
+                        console.log(`💀 Defeated ${enemy.subtype}!`);
+                        gameState.player.gold += Math.floor(Math.random() * 10) + 5;
+                        gameState.entities.splice(index, 1);
+                    } else {
+                        console.log(`⚔️ Fighting ${enemy.subtype}!`);
+                    }
+                }
+            });
+        }
+
+        // Update animations
+        function updateAnimations(deltaTime) {
+            const animSpeed = 200; // ms per frame
+            
+            // Update player animation
+            gameState.player.animTimer += deltaTime;
+            if (gameState.player.animTimer >= animSpeed) {
+                gameState.player.animFrame = (gameState.player.animFrame + 1) % 4;
+                gameState.player.animTimer = 0;
+                gameState.player.isMoving = false;
+            }
+            
+            // Update enemy animations
+            gameState.entities.forEach(enemy => {
+                enemy.animTimer += deltaTime;
+                if (enemy.animTimer >= animSpeed * 2) {
+                    enemy.animFrame = (enemy.animFrame + 1) % 2;
+                    enemy.animTimer = 0;
+                    
+                    // Simple AI movement
+                    if (Math.random() < 0.3) {
+                        const directions = [
+                            {x: 0, y: -1}, {x: 0, y: 1}, {x: -1, y: 0}, {x: 1, y: 0}
+                        ];
+                        const dir = directions[Math.floor(Math.random() * 4)];
+                        const newX = enemy.x + dir.x;
+                        const newY = enemy.y + dir.y;
+                        
+                        if (isValidMove(newX, newY) && 
+                            !gameState.entities.some(other => other !== enemy && other.x === newX && other.y === newY)) {
+                            enemy.x = newX;
+                            enemy.y = newY;
+                            enemy.pixelX = newX * TILE_SIZE;
+                            enemy.pixelY = newY * TILE_SIZE;
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update camera to follow player
+        function updateCamera() {
+            const targetX = gameState.player.pixelX - canvas.width / 2;
+            const targetY = gameState.player.pixelY - canvas.height / 2;
+            
+            gameState.camera.x = Math.max(0, Math.min(WORLD_WIDTH * TILE_SIZE - canvas.width, targetX));
+            gameState.camera.y = Math.max(0, Math.min(WORLD_HEIGHT * TILE_SIZE - canvas.height, targetY));
+        }
+
+        // Render game
+        function render() {
+            // Clear screen
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const startX = Math.floor(gameState.camera.x / TILE_SIZE);
+            const startY = Math.floor(gameState.camera.y / TILE_SIZE);
+            const endX = Math.min(WORLD_WIDTH, startX + Math.ceil(canvas.width / TILE_SIZE) + 1);
+            const endY = Math.min(WORLD_HEIGHT, startY + Math.ceil(canvas.height / TILE_SIZE) + 1);
+            
+            // Render world tiles
+            for (let y = startY; y < endY; y++) {
+                for (let x = startX; x < endX; x++) {
+                    if (x < 0 || y < 0 || x >= WORLD_WIDTH || y >= WORLD_HEIGHT) continue;
+                    
+                    const tile = gameState.world[y][x];
+                    let spriteX = 0;
+                    
+                    switch (tile) {
+                        case 'floor': spriteX = 0; break;
+                        case 'wall': spriteX = 16; break;
+                        case 'door': spriteX = 32; break;
+                        default: spriteX = 48; break; // grass
+                    }
+                    
+                    const pixelX = x * TILE_SIZE - gameState.camera.x;
+                    const pixelY = y * TILE_SIZE - gameState.camera.y;
+                    
+                    ctx.drawImage(sprites.tiles, spriteX, 0, 16, 16, 
+                                pixelX, pixelY, TILE_SIZE, TILE_SIZE);
+                }
+            }
+            
+            // Render items
+            gameState.items.forEach(item => {
+                const pixelX = item.pixelX - gameState.camera.x;
+                const pixelY = item.pixelY - gameState.camera.y;
+                
+                if (pixelX > -TILE_SIZE && pixelX < canvas.width && 
+                    pixelY > -TILE_SIZE && pixelY < canvas.height) {
+                    
+                    let spriteX = 0;
+                    switch (item.type) {
+                        case 'potion': spriteX = 0; break;
+                        case 'gold': spriteX = 16; break;
+                        case 'sword': spriteX = 32; break;
+                        case 'key': spriteX = 48; break;
+                    }
+                    
+                    ctx.drawImage(sprites.items, spriteX, 0, 16, 16,
+                                pixelX + 8, pixelY + 8, 16, 16);
+                }
+            });
+            
+            // Render enemies
+            gameState.entities.forEach(enemy => {
+                const pixelX = enemy.pixelX - gameState.camera.x;
+                const pixelY = enemy.pixelY - gameState.camera.y;
+                
+                if (pixelX > -TILE_SIZE && pixelX < canvas.width && 
+                    pixelY > -TILE_SIZE && pixelY < canvas.height) {
+                    
+                    let spriteX = 0;
+                    switch (enemy.subtype) {
+                        case 'orc': spriteX = 0; break;
+                        case 'skeleton': spriteX = 16; break;
+                        case 'goblin': spriteX = 32; break;
+                    }
+                    
+                    ctx.drawImage(sprites.enemies, spriteX, 0, 16, 16,
+                                pixelX, pixelY, TILE_SIZE, TILE_SIZE);
+                    
+                    // Health bar for enemies
+                    if (enemy.hp < enemy.maxHP) {
+                        const barWidth = TILE_SIZE;
+                        const barHeight = 4;
+                        const healthPercent = enemy.hp / enemy.maxHP;
+                        
+                        ctx.fillStyle = '#ff0000';
+                        ctx.fillRect(pixelX, pixelY - 8, barWidth, barHeight);
+                        ctx.fillStyle = '#00ff00';
+                        ctx.fillRect(pixelX, pixelY - 8, barWidth * healthPercent, barHeight);
+                    }
+                }
+            });
+            
+            // Render player
+            const playerPixelX = gameState.player.pixelX - gameState.camera.x;
+            const playerPixelY = gameState.player.pixelY - gameState.camera.y;
+            
+            let facingRow = 0;
+            switch (gameState.player.facing) {
+                case 'down': facingRow = 0; break;
+                case 'up': facingRow = 1; break;
+                case 'right': facingRow = 2; break;
+                case 'left': facingRow = 3; break;
+            }
+            
+            const spriteX = gameState.player.animFrame * 16;
+            const spriteY = facingRow * 16;
+            
+            ctx.drawImage(sprites.player, spriteX, spriteY, 16, 16,
+                        playerPixelX, playerPixelY, TILE_SIZE, TILE_SIZE);
+        }
+
+        // Update UI
+        function updateUI() {
+            document.getElementById('playerHP').textContent = Math.max(0, Math.floor(gameState.player.hp));
+            document.getElementById('playerGold').textContent = gameState.player.gold;
+            document.getElementById('playerLevel').textContent = gameState.player.level;
+            document.getElementById('currentFloor').textContent = 1;
+            
+            const healthPercent = Math.max(0, gameState.player.hp / gameState.player.maxHP * 100);
+            document.getElementById('healthFill').style.width = healthPercent + '%';
+            
+            // Debug info
+            document.getElementById('frameCount').textContent = gameState.frame;
+            document.getElementById('currentAnim').textContent = 
+                `${gameState.player.facing}_${gameState.player.animFrame}`;
+            document.getElementById('spriteCount').textContent = 
+                gameState.entities.length + gameState.items.length + 1;
+        }
+
+        // Main game loop
+        let lastTime = 0;
+        function gameLoop(currentTime) {
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+            gameState.frame++;
+            
+            handleInput();
+            updateAnimations(deltaTime);
+            updateCamera();
+            render();
+            updateUI();
+            
+            // Check game over
+            if (gameState.player.hp <= 0) {
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 48px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2);
+                ctx.font = '16px monospace';
+                ctx.fillText('Refresh to restart', canvas.width / 2, canvas.height / 2 + 40);
+                return;
+            }
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            gameState.keys[e.code] = true;
+            
+            if (e.code === 'Space') {
+                e.preventDefault();
+                console.log('⚔️ Attack!');
+            } else if (e.code === 'KeyE') {
+                console.log('🤝 Interact');
+            } else if (e.code === 'KeyI') {
+                console.log('🎒 Inventory');
+            } else if (e.code === 'KeyM') {
+                console.log('🗺️ Map');
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            gameState.keys[e.code] = false;
+        });
+
+        // Initialize and start game
+        function initGame() {
+            console.log('🎮 Initializing Ultimate Retro RPG...');
+            createSpriteSheets();
+            generateWorld();
+            console.log('✅ Game initialized! Starting main loop...');
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start the game
+        initGame();
+    </script>
+</body>
+</html>

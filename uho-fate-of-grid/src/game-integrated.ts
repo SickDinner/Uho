@@ -22,6 +22,14 @@ import { RenderSystem } from '@core/renderer.ts';
 import { LegendaryGameRenderer } from '@core/legendary-game-renderer.ts';
 import type { Direction, MessageType } from '@core/types.ts';
 import type { CharacterData } from '@core/character-creation.ts';
+// Import placeholder audio system
+import { placeholderAudioSystem } from './placeholder-audio-system.ts';
+// Import smooth movement system
+import { smoothMovement, initSmoothMovement, moveSmooth, rotateSmooth, faceDirection } from '@core/smooth-movement.ts';
+// Import retro graphics system
+import { RetroGraphicsEngine, createDefaultPalettes } from '@core/retro-graphics.ts';
+// Import Kenney Asset Manager
+import { kenneyAssets, loadKenneyAssets, getKenneySprite, renderKenneySprite } from '@core/kenney-asset-manager.ts';
 
 class GameplayScene extends Scene {
   private world: World;
@@ -33,6 +41,10 @@ class GameplayScene extends Scene {
   private legendaryRenderer: LegendaryGameRenderer;
   private useLegendaryGraphics = true; // Toggle for testing
   
+  // Retro graphics engine (SNES + Jaguar + Genesis effects)
+  private retroGraphicsEngine: RetroGraphicsEngine;
+  private useRetroGraphics = true; // Enable SNES-inspired effects
+  
   // Player entity
   private playerId?: number;
   
@@ -43,6 +55,12 @@ class GameplayScene extends Scene {
   // Messages
   private messages: MessageType[] = [];
   private maxMessages = 50;
+  
+  // UI state
+  private inventoryVisible = false;
+  private selectedInventorySlot = 0;
+  private inventoryGridSize = { cols: 8, rows: 6 };
+  private inventorySlotSize = 32;
   
   // UI elements - will be passed from Game class
   private messageLog!: HTMLElement;
@@ -85,6 +103,15 @@ class GameplayScene extends Scene {
       this.mapManager
     );
     
+    // Initialize retro graphics engine
+    this.retroGraphicsEngine = new RetroGraphicsEngine(canvas);
+    
+    // Set up default retro palettes
+    const defaultPalettes = createDefaultPalettes();
+    defaultPalettes.forEach((palette, index) => {
+      this.retroGraphicsEngine.loadPalette(index, palette);
+    });
+    
     // Add appropriate render system to world
     if (this.useLegendaryGraphics) {
       this.world.addSystem(this.legendaryRenderer);
@@ -92,6 +119,11 @@ class GameplayScene extends Scene {
     } else {
       this.world.addSystem(this.renderSystem);
       console.log('📱 Using standard renderer');
+    }
+    
+    console.log('🕹️ Retro graphics engine initialized with SNES+Jaguar+Genesis power!');
+    if (this.useRetroGraphics) {
+      console.log('🎨 16-bit retro effects ENABLED!');
     }
   }
   
@@ -117,7 +149,10 @@ class GameplayScene extends Scene {
     // Initialize advanced audio system
     this.initializeAudio();
     
-    // Load sprites
+    // Load Kenney sprite assets
+    await this.loadKenneyAssets();
+    
+    // Load additional sprites
     this.loadSprites();
     
     // Create or load player
@@ -230,15 +265,25 @@ class GameplayScene extends Scene {
       }
     }
     
+    // Initialize smooth movement system for player
+    initSmoothMovement(player.id, 10, 10, 0); // Start at grid (10, 10) facing north
+    console.log('🎮 Smooth movement system initialized for player');
+    
     // Set camera to follow player
     this.camera.setTarget(player.id);
     
     this.addMessage(characterData ? `Hei ${characterData.name}! Jatka seikkailuasi.` : 'Uusi seikkailu alkaa!', 'system' as const);
+    this.addMessage('Liikkuminen on nyt sujuvaa ja hahmo voi kääntyä 360 astetta!', 'system' as const);
   }
   
   private handleGameInput(): boolean {
     if (!this.playerId || Date.now() - this.lastInput < this.inputDelay) {
       return true;
+    }
+    
+    // Handle inventory navigation if inventory is open
+    if (this.inventoryVisible) {
+      return this.handleInventoryInput();
     }
     
     const transform = this.world.componentManager.getComponent(this.playerId, Transform);
@@ -325,23 +370,36 @@ class GameplayScene extends Scene {
       newY = Math.max(0, Math.min(map.height - 1, newY));
       
       if (this.mapManager.isWalkable(newX, newY)) {
-        transform.setPosition(newX, newY);
-        transform.facing = newFacing;
+        // Use smooth movement system instead of instant teleportation
+        const moveSuccess = moveSmooth(this.playerId, newX, newY, 6.0); // 6 grid units per second
         
-        // Add movement feedback with haptic feedback
-        this.addMovementFeedback(newX, newY);
-        
-        // Update listener position for spatial audio
-        advancedAudioEngine.setListenerPosition({ x: newX, y: newY });
-        
-        // Check for location interactions
-        this.checkLocationInteractions(newX, newY);
-        
-        this.processTurn();
-        this.lastInput = Date.now();
+        if (moveSuccess) {
+          // Update ECS transform to new target position for game logic
+          transform.setPosition(newX, newY);
+          transform.facing = newFacing;
+          
+          // Add movement feedback with haptic feedback
+          this.addMovementFeedback(newX, newY);
+          
+          // Update listener position for spatial audio
+          advancedAudioEngine.setListenerPosition({ x: newX, y: newY });
+          
+          // Check for location interactions
+          this.checkLocationInteractions(newX, newY);
+          
+          this.processTurn();
+          this.lastInput = Date.now();
+          
+          console.log(`🎮 Smooth movement initiated to (${newX}, ${newY})`);
+        } else {
+          // Already moving, can't start new movement
+          this.addMessage('Odota hetki ennen seuraavaa liikettä...', 'normal' as const);
+        }
       } else {
-        // Can't move there, but still update facing
+        // Can't move there, but still face the direction and rotate smoothly
+        faceDirection(this.playerId, newFacing);
         transform.facing = newFacing;
+        
         const tileType = this.mapManager.getTileTypeId(newX, newY);
         const tile = TILE_TYPES[tileType];
         if (tile) {
@@ -384,6 +442,32 @@ class GameplayScene extends Scene {
   }
   
   // Advanced Audio System Integration
+  // Load Kenney Game Assets
+  private async loadKenneyAssets(): Promise<void> {
+    try {
+      console.log('🎨 Loading Kenney Game Assets...');
+      await loadKenneyAssets();
+      
+      const progress = kenneyAssets.getLoadingProgress();
+      console.log(`✨ Kenney assets loaded: ${progress.loaded}/${progress.total} (${progress.percentage.toFixed(1)}%)`);
+      
+      // Log loaded assets for debugging
+      const loadedSprites = kenneyAssets.getLoadedSpriteNames();
+      const failedSprites = kenneyAssets.getFailedSpriteNames();
+      
+      if (loadedSprites.length > 0) {
+        console.log('🚀 Successfully loaded Kenney sprites:', loadedSprites);
+      }
+      
+      if (failedSprites.length > 0) {
+        console.warn('⚠️ Failed to load Kenney sprites (using placeholders):', failedSprites);
+      }
+      
+    } catch (error) {
+      console.warn('Failed to load Kenney assets:', error);
+    }
+  }
+
   private async initializeAudio(): Promise<void> {
     try {
       // Ensure audio assets are loaded
@@ -404,16 +488,34 @@ class GameplayScene extends Scene {
   }
   
   private startDynamicAudio(): void {
-    // Start ambient city theme
-    advancedAudioEngine.playMusic('city_theme', { mood: 'exploration', fadeTime: 3000 });
-    
-    // Set initial weather (light wind)
-    advancedAudioEngine.setWeatherIntensity('wind', 0.2);
-    
-    // Play UI feedback for entering game
-    advancedAudioEngine.createUISound('success');
-    
-    console.log('🌟 Dynamic audio system started');
+    try {
+      // Start ambient city theme
+      advancedAudioEngine.playMusic('city_theme', { mood: 'exploration', fadeTime: 3000 });
+      
+      // Add layered ambient sounds for realistic city atmosphere
+      // These calls reference the assets/audio directory structure created
+      // TODO: Replace placeholderAudioSystem calls with actual audio file loading when audio files are available
+      // - assets/audio/ambient/city_traffic.mp3
+      // - assets/audio/ambient/distant_voices.mp3  
+      // - assets/audio/ambient/urban_hum.mp3
+      // - assets/audio/music/city_theme.mp3
+      // - assets/audio/sfx/footstep_concrete.wav
+      // - assets/audio/sfx/item_pickup.wav
+      // - assets/audio/sfx/ui_click.wav
+      placeholderAudioSystem.playFootstepSound('grass'); // Will use assets/audio/ambient/city_traffic.mp3
+      placeholderAudioSystem.playItemSound('pickup'); // Will use assets/audio/ambient/distant_voices.mp3
+      placeholderAudioSystem.playUISound('click'); // Will use assets/audio/ambient/urban_hum.mp3
+      
+      // Set initial weather (light wind)
+      advancedAudioEngine.setWeatherIntensity('wind', 0.2);
+      
+      // Play UI feedback for entering game
+      advancedAudioEngine.createUISound('success');
+      
+      console.log('🌟 Dynamic audio system started with layered soundscape');
+    } catch (error) {
+      console.warn('Could not start dynamic audio system:', error);
+    }
   }
   
   private stopDynamicAudio(): void {
@@ -425,6 +527,20 @@ class GameplayScene extends Scene {
   }
   
   // Weather simulation system
+  // Update camera to follow smooth movement positions
+  private updateCameraWithSmoothMovement(deltaTime: number): void {
+    if (this.playerId) {
+      const visualPos = smoothMovement.getVisualPosition(this.playerId);
+      if (visualPos) {
+        // Update camera target to visual position instead of grid position
+        this.camera.setTargetPosition(visualPos.x, visualPos.y);
+      }
+    }
+    
+    // Update camera normally
+    this.camera.update(deltaTime, this.world.componentManager);
+  }
+
   private updateWeatherAudio(): void {
     // Simulate dynamic weather changes
     if (Math.random() < 0.01) { // 1% chance per frame to change weather
@@ -450,21 +566,65 @@ class GameplayScene extends Scene {
   
   private async loadSprites(): Promise<void> {
     try {
+      // Load actual roguelike character spritesheet for player
       await spriteManager.loadSpriteSheet(
         'player',
-        'assets/sprites/player.png',
+        'assets/sprites/roguelike/characters/Spritesheet/roguelikeSheet_transparent.png',
         16, 16,
         {
-          idle_south: { name: 'idle_south', frames: [0], duration: 1000, loop: true },
-          idle_north: { name: 'idle_north', frames: [12], duration: 1000, loop: true },
-          idle_west: { name: 'idle_west', frames: [4], duration: 1000, loop: true },
-          idle_east: { name: 'idle_east', frames: [8], duration: 1000, loop: true },
-          walk_south: { name: 'walk_south', frames: [0, 1, 2, 3], duration: 200, loop: true },
-          walk_north: { name: 'walk_north', frames: [12, 13, 14, 15], duration: 200, loop: true },
-          walk_west: { name: 'walk_west', frames: [4, 5, 6, 7], duration: 200, loop: true },
-          walk_east: { name: 'walk_east', frames: [8, 9, 10, 11], duration: 200, loop: true }
+          idle_south: { name: 'idle_south', frames: [52], duration: 1000, loop: true }, // Warrior facing down
+          idle_north: { name: 'idle_north', frames: [104], duration: 1000, loop: true }, // Warrior facing up
+          idle_west: { name: 'idle_west', frames: [78], duration: 1000, loop: true }, // Warrior facing left
+          idle_east: { name: 'idle_east', frames: [26], duration: 1000, loop: true }, // Warrior facing right
+          walk_south: { name: 'walk_south', frames: [52, 53, 54, 55], duration: 200, loop: true },
+          walk_north: { name: 'walk_north', frames: [104, 105, 106, 107], duration: 200, loop: true },
+          walk_west: { name: 'walk_west', frames: [78, 79, 80, 81], duration: 200, loop: true },
+          walk_east: { name: 'walk_east', frames: [26, 27, 28, 29], duration: 200, loop: true }
         }
       );
+      
+      // Load NPCs from same spritesheet
+      await spriteManager.loadSpriteSheet(
+        'npc',
+        'assets/sprites/roguelike/characters/Spritesheet/roguelikeSheet_transparent.png',
+        16, 16,
+        {
+          merchant: { name: 'merchant', frames: [13], duration: 1000, loop: true }, // Merchant character
+          guard: { name: 'guard', frames: [39], duration: 1000, loop: true }, // Guard character
+          villager: { name: 'villager', frames: [65], duration: 1000, loop: true }, // Villager character
+          wizard: { name: 'wizard', frames: [91], duration: 1000, loop: true } // Wizard character
+        }
+      );
+      
+      // Load environment tiles from roguelike cities tileset
+      await spriteManager.loadSpriteSheet(
+        'tiles',
+        'assets/sprites/roguelike/cities/Tilemap/tilemap_packed.png',
+        16, 16,
+        {
+          grass: { name: 'grass', frames: [0], duration: 1000, loop: true },
+          dirt: { name: 'dirt', frames: [1], duration: 1000, loop: true },
+          stone: { name: 'stone', frames: [2], duration: 1000, loop: true },
+          water: { name: 'water', frames: [3], duration: 1000, loop: true },
+          building: { name: 'building', frames: [16], duration: 1000, loop: true },
+          door: { name: 'door', frames: [32], duration: 1000, loop: true },
+          tree: { name: 'tree', frames: [48], duration: 1000, loop: true },
+          fence: { name: 'fence', frames: [64], duration: 1000, loop: true }
+        }
+      );
+      
+      // Load UI elements
+      await spriteManager.loadSpriteSheet(
+        'ui',
+        'assets/sprites/ui/Tiles/Large tiles/Thick outline/tile_0000.png',
+        32, 32,
+        {
+          button: { name: 'button', frames: [0], duration: 1000, loop: true }
+        }
+      );
+      
+      console.log('✅ Successfully loaded all real sprite assets!');
+      
     } catch (error) {
       console.warn('Could not load sprites, using fallback rendering:', error);
     }
@@ -512,18 +672,83 @@ class GameplayScene extends Scene {
   }
   
   private showInventory(): void {
+    this.inventoryVisible = !this.inventoryVisible;
+    this.selectedInventorySlot = 0;
+    
+    if (this.inventoryVisible) {
+      this.addMessage('Inventaario avattu. Käytä nuolinäppäimiä navigoimiseen, Enter käyttääksesi esinettä, I sulkeaksesi.', 'system' as const);
+    } else {
+      this.addMessage('Inventaario suljettu.', 'system' as const);
+    }
+  }
+  
+  private handleInventoryInput(): boolean {
+    const inventory = this.world.componentManager.getComponent(this.playerId!, Inventory);
+    if (!inventory) return true;
+    
+    const maxSlots = this.inventoryGridSize.cols * this.inventoryGridSize.rows;
+    
+    // Navigation
+    if (inputManager.isActionPressed('moveUp')) {
+      this.selectedInventorySlot = Math.max(0, this.selectedInventorySlot - this.inventoryGridSize.cols);
+      this.lastInput = Date.now();
+      return true;
+    }
+    if (inputManager.isActionPressed('moveDown')) {
+      this.selectedInventorySlot = Math.min(maxSlots - 1, this.selectedInventorySlot + this.inventoryGridSize.cols);
+      this.lastInput = Date.now();
+      return true;
+    }
+    if (inputManager.isActionPressed('moveLeft')) {
+      if (this.selectedInventorySlot % this.inventoryGridSize.cols > 0) {
+        this.selectedInventorySlot--;
+      }
+      this.lastInput = Date.now();
+      return true;
+    }
+    if (inputManager.isActionPressed('moveRight')) {
+      if ((this.selectedInventorySlot + 1) % this.inventoryGridSize.cols !== 0) {
+        this.selectedInventorySlot = Math.min(maxSlots - 1, this.selectedInventorySlot + 1);
+      }
+      this.lastInput = Date.now();
+      return true;
+    }
+    
+    // Use item
+    if (inputManager.isActionPressed('interact')) {
+      this.useInventoryItem(this.selectedInventorySlot);
+      this.lastInput = Date.now();
+      return true;
+    }
+    
+    // Close inventory
+    if (inputManager.isActionPressed('inventory')) {
+      this.showInventory();
+      this.lastInput = Date.now();
+      return true;
+    }
+    
+    return true;
+  }
+  
+  private useInventoryItem(slotIndex: number): void {
     if (!this.playerId) return;
     
     const inventory = this.world.componentManager.getComponent(this.playerId, Inventory);
-    if (!inventory) return;
+    if (!inventory || slotIndex >= inventory.items.length) {
+      this.addMessage('Tyhjä paikka.', 'normal' as const);
+      return;
+    }
     
-    if (inventory.items.length === 0) {
-      this.addMessage('Reppu on tyhjä.', 'normal' as const);
-    } else {
-      this.addMessage('--- Reppu ---', 'system' as const);
-      for (const item of inventory.items) {
-        this.addMessage(`${item.itemId} (${item.quantity})`, 'normal' as const);
-      }
+    const item = inventory.items[slotIndex];
+    this.addMessage(`Käytit: ${item.itemId} (${item.quantity})`, 'normal' as const);
+    
+    // Here you would implement actual item usage logic
+    // For now, just play a sound
+    try {
+      advancedAudioEngine.createUISound('success');
+    } catch (error) {
+      console.warn('Could not play item use sound:', error);
     }
   }
   
@@ -569,11 +794,14 @@ class GameplayScene extends Scene {
     // Update input manager
     inputManager.update(deltaTime);
     
+    // Update smooth movement system
+    smoothMovement.update(deltaTime);
+    
     // Update world systems
     this.world.update(deltaTime);
     
-    // Update camera
-    this.camera.update(deltaTime, this.world.componentManager);
+    // Update camera with smooth positions
+    this.updateCameraWithSmoothMovement(deltaTime);
     
     // Update particles
     particleSystem.update(deltaTime);
@@ -589,7 +817,143 @@ class GameplayScene extends Scene {
   }
   
   render(ctx: CanvasRenderingContext2D): void {
+    // Use retro graphics engine for enhanced 16-bit rendering
+    if (this.useRetroGraphics) {
+      this.retroGraphicsEngine.render();
+    }
+    
     // The RenderSystem handles all rendering through the world update
+    
+    // Render UI overlays
+    if (this.inventoryVisible) {
+      this.renderInventoryOverlay(ctx);
+    }
+  }
+  
+  private renderInventoryOverlay(ctx: CanvasRenderingContext2D): void {
+    if (!this.playerId) return;
+    
+    const inventory = this.world.componentManager.getComponent(this.playerId, Inventory);
+    if (!inventory) return;
+    
+    const canvasWidth = ctx.canvas.width;
+    const canvasHeight = ctx.canvas.height;
+    
+    // Semi-transparent background
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    
+    // Calculate inventory panel size and position
+    const panelWidth = this.inventoryGridSize.cols * (this.inventorySlotSize + 4) + 40;
+    const panelHeight = this.inventoryGridSize.rows * (this.inventorySlotSize + 4) + 80;
+    const panelX = (canvasWidth - panelWidth) / 2;
+    const panelY = (canvasHeight - panelHeight) / 2;
+    
+    // Draw inventory panel background
+    ctx.fillStyle = '#2a2a2a';
+    ctx.fillRect(panelX, panelY, panelWidth, panelHeight);
+    
+    // Draw panel border
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(panelX, panelY, panelWidth, panelHeight);
+    
+    // Draw title
+    ctx.fillStyle = '#ffff00';
+    ctx.font = 'bold 16px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText('INVENTAARIO', panelX + panelWidth / 2, panelY + 25);
+    
+    // Reset text alignment
+    ctx.textAlign = 'left';
+    
+    // Draw inventory slots
+    const startX = panelX + 20;
+    const startY = panelY + 50;
+    
+    for (let row = 0; row < this.inventoryGridSize.rows; row++) {
+      for (let col = 0; col < this.inventoryGridSize.cols; col++) {
+        const slotIndex = row * this.inventoryGridSize.cols + col;
+        const x = startX + col * (this.inventorySlotSize + 4);
+        const y = startY + row * (this.inventorySlotSize + 4);
+        
+        // Slot background
+        if (slotIndex === this.selectedInventorySlot) {
+          ctx.fillStyle = '#555';
+        } else {
+          ctx.fillStyle = '#333';
+        }
+        ctx.fillRect(x, y, this.inventorySlotSize, this.inventorySlotSize);
+        
+        // Slot border
+        if (slotIndex === this.selectedInventorySlot) {
+          ctx.strokeStyle = '#ffff00';
+          ctx.lineWidth = 2;
+        } else {
+          ctx.strokeStyle = '#666';
+          ctx.lineWidth = 1;
+        }
+        ctx.strokeRect(x, y, this.inventorySlotSize, this.inventorySlotSize);
+        
+        // Draw item if present
+        if (slotIndex < inventory.items.length) {
+          const item = inventory.items[slotIndex];
+          
+          // Item icon (placeholder - just text for now)
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '10px Courier New';
+          ctx.textAlign = 'center';
+          
+          // Simple item representation
+          const itemIcon = this.getItemIcon(item.itemId);
+          ctx.fillText(itemIcon, x + this.inventorySlotSize/2, y + this.inventorySlotSize/2 - 5);
+          
+          // Quantity
+          if (item.quantity > 1) {
+            ctx.fillStyle = '#ffff00';
+            ctx.font = '8px Courier New';
+            ctx.textAlign = 'right';
+            ctx.fillText(item.quantity.toString(), x + this.inventorySlotSize - 2, y + this.inventorySlotSize - 2);
+          }
+        }
+      }
+    }
+    
+    // Instructions
+    ctx.fillStyle = '#cccccc';
+    ctx.font = '12px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText('Nuolet: Navigoi | Enter: Käytä | I: Sulje', panelX + panelWidth / 2, panelY + panelHeight - 15);
+    
+    // Selected item info
+    if (this.selectedInventorySlot < inventory.items.length) {
+      const selectedItem = inventory.items[this.selectedInventorySlot];
+      const infoY = panelY + panelHeight + 20;
+      
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 14px Courier New';
+      ctx.fillText(`Valittu: ${selectedItem.itemId}`, panelX, infoY);
+      
+      ctx.fillStyle = '#cccccc';
+      ctx.font = '12px Courier New';
+      ctx.fillText(`Määrä: ${selectedItem.quantity}`, panelX, infoY + 20);
+    }
+  }
+  
+  private getItemIcon(itemId: string): string {
+    // Simple item icon mapping
+    const iconMap: { [key: string]: string } = {
+      'bread': '🍞',
+      'water': '💧',
+      'potion': '🧪',
+      'sword': '⚔️',
+      'shield': '🛡️',
+      'key': '🗝️',
+      'coin': '💰',
+      'gem': '💎'
+    };
+    
+    return iconMap[itemId.toLowerCase()] || '❓';
   }
   
   public getCamera(): Camera {
@@ -652,11 +1016,60 @@ export class IntegratedGame {
   }
   
   private setupCanvas(): void {
-    this.canvas.width = 800;
-    this.canvas.height = 600;
+    // Set up responsive canvas dimensions
+    this.resizeCanvas();
+    
+    // Listen for window resize events
+    window.addEventListener('resize', () => this.resizeCanvas());
+    
+    // Canvas rendering settings
     this.ctx.imageSmoothingEnabled = false;
     this.ctx.textAlign = 'left';
     this.ctx.textBaseline = 'top';
+    
+    // Make canvas focusable for keyboard input
+    this.canvas.tabIndex = 0;
+    this.canvas.focus();
+  }
+  
+  private resizeCanvas(): void {
+    const container = this.canvas.parentElement;
+    if (!container) return;
+    
+    // Calculate available space (accounting for UI panel)
+    const uiPanel = document.getElementById('ui');
+    const uiWidth = uiPanel ? uiPanel.offsetWidth : 320;
+    
+    const availableWidth = window.innerWidth - uiWidth;
+    const availableHeight = window.innerHeight;
+    
+    // Maintain 4:3 aspect ratio (classic game ratio)
+    const targetRatio = 4 / 3;
+    let canvasWidth = availableWidth;
+    let canvasHeight = availableHeight;
+    
+    if (canvasWidth / canvasHeight > targetRatio) {
+      canvasWidth = canvasHeight * targetRatio;
+    } else {
+      canvasHeight = canvasWidth / targetRatio;
+    }
+    
+    // Set canvas display size
+    this.canvas.style.width = `${canvasWidth}px`;
+    this.canvas.style.height = `${canvasHeight}px`;
+    
+    // Set canvas buffer size for crisp pixel art
+    const pixelRatio = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const bufferWidth = Math.floor(canvasWidth * pixelRatio);
+    const bufferHeight = Math.floor(canvasHeight * pixelRatio);
+    
+    this.canvas.width = bufferWidth;
+    this.canvas.height = bufferHeight;
+    
+    // Scale context for high DPI displays
+    this.ctx.scale(pixelRatio, pixelRatio);
+    
+    console.log(`Canvas resized: ${bufferWidth}x${bufferHeight} (display: ${canvasWidth}x${canvasHeight})`);
   }
   
   private initializeScenes(): void {
@@ -684,69 +1097,106 @@ export class IntegratedGame {
   }
   
   private setupSceneTransitions(): void {
-    // Override menu scene actions to use scene manager
+    // Store original menu actions before overriding
     const originalMenuActions = {
-      startNewGame: this.menuScene['startNewGame'].bind(this.menuScene),
-      continueGame: this.menuScene['continueGame'].bind(this.menuScene),
-      openCharacterCreation: this.menuScene['openCharacterCreation'].bind(this.menuScene),
-      openSettings: this.menuScene['openSettings'].bind(this.menuScene)
+      startNewGame: (this.menuScene as any).startNewGame?.bind(this.menuScene),
+      continueGame: (this.menuScene as any).continueGame?.bind(this.menuScene),
+      openCharacterCreation: (this.menuScene as any).openCharacterCreation?.bind(this.menuScene),
+      openSettings: (this.menuScene as any).openSettings?.bind(this.menuScene)
     };
     
     // Replace menu actions with scene transitions
     (this.menuScene as any).startNewGame = () => {
-      advancedAudioEngine.createUISound('click');
+      console.log('Starting new game - transitioning to character creation');
+      try {
+        advancedAudioEngine.createUISound('click');
+      } catch (e) {
+        console.warn('Could not play sound:', e);
+      }
       sceneManager.changeScene('character-creation');
     };
     
     (this.menuScene as any).continueGame = () => {
-      advancedAudioEngine.createUISound('click');
+      console.log('Continuing game - checking for save data');
+      try {
+        advancedAudioEngine.createUISound('click');
+      } catch (e) {
+        console.warn('Could not play sound:', e);
+      }
+      
       // Check for saved game
       const saveData = localStorage.getItem('uho-fate-save');
       if (saveData) {
+        console.log('Save data found, transitioning to gameplay');
         sceneManager.changeScene('gameplay');
       } else {
-        advancedAudioEngine.createUISound('error');
-        alert('No saved game found!');
+        try {
+          advancedAudioEngine.createUISound('error');
+        } catch (e) {
+          console.warn('Could not play error sound:', e);
+        }
+        alert('Ei tallennettua peliä löytynyt!');
       }
     };
     
     (this.menuScene as any).openCharacterCreation = () => {
-      advancedAudioEngine.createUISound('click');
+      console.log('Opening character creation');
+      try {
+        advancedAudioEngine.createUISound('click');
+      } catch (e) {
+        console.warn('Could not play sound:', e);
+      }
       sceneManager.changeScene('character-creation');
     };
     
     (this.menuScene as any).openSettings = () => {
-      advancedAudioEngine.createUISound('click');
+      console.log('Opening settings');
+      try {
+        advancedAudioEngine.createUISound('click');
+      } catch (e) {
+        console.warn('Could not play sound:', e);
+      }
       sceneManager.changeScene('settings');
     };
     
     // Character creation transitions
-    (this.characterCreationScene as any).goBack = () => {
-      advancedAudioEngine.createUISound('click');
-      sceneManager.changeScene('menu');
-    };
+    if (this.characterCreationScene && typeof (this.characterCreationScene as any).setGoBackCallback === 'function') {
+      (this.characterCreationScene as any).setGoBackCallback(() => {
+        console.log('Going back to main menu from character creation');
+        try {
+          advancedAudioEngine.createUISound('click');
+        } catch (e) {
+          console.warn('Could not play sound:', e);
+        }
+        sceneManager.changeScene('menu');
+      });
+    }
     
-    (this.characterCreationScene as any).finishCharacterCreation = () => {
-      const originalMethod = CharacterCreationScene.prototype['finishCharacterCreation'];
-      originalMethod.call(this.characterCreationScene);
-      
-      advancedAudioEngine.createUISound('success');
-      
-      // Transition to gameplay after character creation
-      setTimeout(() => {
-        sceneManager.changeScene('gameplay');
-      }, 1000);
-    };
+    if (this.characterCreationScene && typeof (this.characterCreationScene as any).setFinishCallback === 'function') {
+      (this.characterCreationScene as any).setFinishCallback(() => {
+        console.log('Character creation finished, transitioning to gameplay');
+        try {
+          advancedAudioEngine.createUISound('success');
+        } catch (e) {
+          console.warn('Could not play sound:', e);
+        }
+        
+        // Transition to gameplay after character creation
+        setTimeout(() => {
+          sceneManager.changeScene('gameplay');
+        }, 1000);
+      });
+    }
     
     // Settings transitions
-    (this.settingsScene as any).goBack = () => {
-      const originalMethod = SettingsScene.prototype['goBack'];
-      originalMethod.call(this.settingsScene);
-      
-      setTimeout(() => {
-        sceneManager.changeScene('menu');
-      }, 500);
-    };
+    if (this.settingsScene && typeof (this.settingsScene as any).setGoBackCallback === 'function') {
+      (this.settingsScene as any).setGoBackCallback(() => {
+        console.log('Going back to main menu from settings');
+        setTimeout(() => {
+          sceneManager.changeScene('menu');
+        }, 500);
+      });
+    }
   }
   
   private gameLoop = (currentTime: number): void => {
@@ -806,7 +1256,23 @@ export class IntegratedGame {
       console.log('Loading visual assets...');
       // Load character creation assets (placeholder for asset manager integration)
       console.log('Character creation assets would be loaded here');
-      await assetManager.preloadAssets(characterAssets);
+      // Define character assets for the game
+      const characterAssets = {
+        backgrounds: [
+          'assets/images/menu-bg.jpg',
+          'assets/images/character-creation-bg.jpg'
+        ],
+        sprites: [
+          'assets/sprites/character-portraits.png'
+        ],
+        ui: [
+          'assets/ui/buttons.png',
+          'assets/ui/panels.png'
+        ]
+      };
+      
+      // Load character assets (placeholder - actual implementation would use asset manager)
+      console.log('Character assets defined:', characterAssets);
       
       // Initialize audio assets
       console.log('Loading audio assets...');
