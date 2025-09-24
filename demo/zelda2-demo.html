@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UHO: Fate of the Grid - Zelda 2 Style Demo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        canvas {
+            border: 2px solid #444;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+        
+        #instructions {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 5px;
+            max-width: 400px;
+        }
+        
+        .key {
+            display: inline-block;
+            background: #333;
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+            margin: 0 2px;
+        }
+        
+        #systems-info {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+        
+        .status {
+            color: #00ff00;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+    </div>
+    
+    <div id="instructions">
+        <h3>🎮 UHO: Fate of the Grid - Demo</h3>
+        <p><strong>World Map Mode:</strong></p>
+        <p><span class="key">WASD</span> / <span class="key">Arrow Keys</span> - Move around world map</p>
+        <p><span class="key">ENTER</span> - Enter location when standing on it</p>
+        <p><span class="key">+/-</span> - Zoom in/out</p>
+        <p><span class="key">TAB</span> - Quick switch to side-scroll (demo)</p>
+        
+        <p><strong>Side-Scroll Mode:</strong></p>
+        <p><span class="key">A/D</span> - Move left/right</p>
+        <p><span class="key">SHIFT</span> + <span class="key">A/D</span> - Run</p>
+        <p><span class="key">SPACE</span> / <span class="key">W</span> - Jump</p>
+        <p><span class="key">X</span> - Attack (camera shake)</p>
+        <p><span class="key">TAB</span> - Return to world map</p>
+        
+        <p>Walk to the right edge to exit back to world map!</p>
+    </div>
+    
+    <div id="systems-info">
+        <div>🗺️ World Map: <span class="status">Active</span> (Ultima 4 style)</div>
+        <div>🏙️ Side-scroll: <span class="status">Active</span> (Zelda 2 style)</div>
+        <div>⚛️ Physics: <span class="status">Active</span> (Gravity, weight, collision)</div>
+        <div>📏 Scaling: <span class="status">Active</span> (Skaalain system)</div>
+        <div>🎨 Parallax: <span class="status">Active</span> (Multi-layer backgrounds)</div>
+        <div>🔄 Transitions: <span class="status">Active</span> (Smooth mode switching)</div>
+    </div>
+
+    <script>
+        // This would normally import the modules, but for demo purposes we'll simulate
+        class DemoGame {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                
+                // Simulate game systems
+                this.currentMode = 'world_map';
+                this.keys = new Set();
+                this.isTransitioning = false;
+                this.transitionProgress = 0;
+                
+                // Player state
+                this.worldPlayer = { x: 5, y: 12 };
+                this.sidePlayer = { x: 100, y: 500, vx: 0, vy: 0, grounded: false };
+                
+                // World map
+                this.worldMap = {
+                    width: 32,
+                    height: 24,
+                    tileSize: 24,
+                    camera: { x: 0, y: 0, zoom: 2 }
+                };
+                
+                // Side-scroll
+                this.sideScroll = {
+                    camera: { x: 0, y: 0 },
+                    platforms: [
+                        { x: 0, y: 550, width: 2000, height: 50 },
+                        { x: 300, y: 450, width: 100, height: 100 },
+                        { x: 500, y: 400, width: 80, height: 150 },
+                        { x: 1000, y: 500, width: 150, height: 50 }
+                    ],
+                    parallax: [
+                        { x: 0, speed: 0.1, color: '#87CEEB' },
+                        { x: 0, speed: 0.3, color: '#2F4F4F' },
+                        { x: 0, speed: 0.9, color: '#8B4513' }
+                    ]
+                };
+                
+                this.setupInput();
+                this.generateTerrain();
+                this.start();
+            }
+            
+            generateTerrain() {
+                this.terrain = [];
+                for (let y = 0; y < this.worldMap.height; y++) {
+                    this.terrain[y] = [];
+                    for (let x = 0; x < this.worldMap.width; x++) {
+                        if (y < 3 || y > this.worldMap.height - 4 || x < 2 || x > this.worldMap.width - 3) {
+                            this.terrain[y][x] = 2; // Mountains
+                        } else if (Math.random() < 0.1) {
+                            this.terrain[y][x] = 1; // Forest
+                        } else {
+                            this.terrain[y][x] = 0; // Grass
+                        }
+                    }
+                }
+                
+                // Add road
+                for (let x = 5; x < this.worldMap.width - 5; x++) {
+                    this.terrain[Math.floor(this.worldMap.height / 2)][x] = 5;
+                }
+                
+                this.locations = [
+                    { x: 16, y: 12, type: 'city', name: 'Central City', discovered: true, visited: false },
+                    { x: 26, y: 12, type: 'dungeon', name: 'Eastern Ruins', discovered: false, visited: false }
+                ];
+            }
+            
+            setupInput() {
+                document.addEventListener('keydown', (e) => {
+                    this.keys.add(e.key.toLowerCase());
+                    e.preventDefault();
+                });
+                
+                document.addEventListener('keyup', (e) => {
+                    this.keys.delete(e.key.toLowerCase());
+                });
+            }
+            
+            handleInput() {
+                if (this.isTransitioning) return;
+                
+                if (this.keys.has('tab')) {
+                    this.switchMode();
+                    this.keys.delete('tab');
+                }
+                
+                if (this.currentMode === 'world_map') {
+                    this.handleWorldInput();
+                } else {
+                    this.handleSideScrollInput();
+                }
+            }
+            
+            handleWorldInput() {
+                let moved = false;
+                let newX = this.worldPlayer.x;
+                let newY = this.worldPlayer.y;
+                
+                if (this.keys.has('w') || this.keys.has('arrowup')) {
+                    newY--;
+                    moved = true;
+                } else if (this.keys.has('s') || this.keys.has('arrowdown')) {
+                    newY++;
+                    moved = true;
+                } else if (this.keys.has('a') || this.keys.has('arrowleft')) {
+                    newX--;
+                    moved = true;
+                } else if (this.keys.has('d') || this.keys.has('arrowright')) {
+                    newX++;
+                    moved = true;
+                }
+                
+                if (moved && this.canMoveTo(newX, newY)) {
+                    this.worldPlayer.x = newX;
+                    this.worldPlayer.y = newY;
+                    this.updateWorldCamera();
+                    this.discoverNearbyLocations();
+                }
+                
+                if (this.keys.has('enter')) {
+                    this.tryEnterLocation();
+                    this.keys.delete('enter');
+                }
+                
+                // Zoom
+                if (this.keys.has('=')) {
+                    this.worldMap.camera.zoom = Math.min(4, this.worldMap.camera.zoom * 1.1);
+                }
+                if (this.keys.has('-')) {
+                    this.worldMap.camera.zoom = Math.max(0.5, this.worldMap.camera.zoom * 0.9);
+                }
+            }
+            
+            handleSideScrollInput() {
+                const player = this.sidePlayer;
+                const isRunning = this.keys.has('shift');
+                const speed = isRunning ? 200 : 120;
+                
+                if (this.keys.has('a')) {
+                    player.vx = -speed;
+                } else if (this.keys.has('d')) {
+                    player.vx = speed;
+                } else {
+                    player.vx *= 0.8; // Friction
+                }
+                
+                if ((this.keys.has(' ') || this.keys.has('w')) && player.grounded) {
+                    player.vy = -400;
+                    player.grounded = false;
+                }
+                
+                if (this.keys.has('x')) {
+                    this.cameraShake = { intensity: 5, duration: 200, remaining: 200 };
+                    this.keys.delete('x');
+                }
+                
+                // Physics update
+                player.vy += 980 * 0.016; // Gravity
+                player.x += player.vx * 0.016;
+                player.y += player.vy * 0.016;
+                
+                // Collision with platforms
+                player.grounded = false;
+                for (const platform of this.sideScroll.platforms) {
+                    if (player.x + 16 > platform.x && 
+                        player.x < platform.x + platform.width &&
+                        player.y + 32 > platform.y && 
+                        player.y < platform.y + platform.height) {
+                        
+                        if (player.vy >= 0) { // Falling down
+                            player.y = platform.y - 32;
+                            player.vy = 0;
+                            player.grounded = true;
+                        }
+                    }
+                }
+                
+                // Update camera
+                this.sideScroll.camera.x += (player.x - this.canvas.width / 2 - this.sideScroll.camera.x) * 0.1;
+                this.sideScroll.camera.y += (player.y - this.canvas.height / 2 - this.sideScroll.camera.y) * 0.1;
+                
+                // Camera shake
+                if (this.cameraShake && this.cameraShake.remaining > 0) {
+                    this.cameraShake.remaining -= 16;
+                    this.sideScroll.camera.x += (Math.random() - 0.5) * this.cameraShake.intensity;
+                    this.sideScroll.camera.y += (Math.random() - 0.5) * this.cameraShake.intensity;
+                }
+                
+                // Check exit
+                if (player.x > 1900) {
+                    this.switchMode();
+                }
+            }
+            
+            canMoveTo(x, y) {
+                if (x < 0 || x >= this.worldMap.width || y < 0 || y >= this.worldMap.height) return false;
+                const terrain = this.terrain[y][x];
+                return terrain !== 2; // Not mountain
+            }
+            
+            updateWorldCamera() {
+                const targetX = this.worldPlayer.x * this.worldMap.tileSize - this.canvas.width / (2 * this.worldMap.camera.zoom);
+                const targetY = this.worldPlayer.y * this.worldMap.tileSize - this.canvas.height / (2 * this.worldMap.camera.zoom);
+                
+                this.worldMap.camera.x += (targetX - this.worldMap.camera.x) * 0.1;
+                this.worldMap.camera.y += (targetY - this.worldMap.camera.y) * 0.1;
+            }
+            
+            discoverNearbyLocations() {
+                for (const location of this.locations) {
+                    const distance = Math.abs(location.x - this.worldPlayer.x) + Math.abs(location.y - this.worldPlayer.y);
+                    if (distance <= 3) {
+                        location.discovered = true;
+                    }
+                }
+            }
+            
+            tryEnterLocation() {
+                for (const location of this.locations) {
+                    if (location.x === this.worldPlayer.x && location.y === this.worldPlayer.y) {
+                        this.switchMode();
+                        location.visited = true;
+                        break;
+                    }
+                }
+            }
+            
+            switchMode() {
+                if (this.isTransitioning) return;
+                
+                this.isTransitioning = true;
+                this.transitionProgress = 0;
+                
+                // Capture current frame
+                this.transitionFrame = document.createElement('canvas');
+                this.transitionFrame.width = this.canvas.width;
+                this.transitionFrame.height = this.canvas.height;
+                const transCtx = this.transitionFrame.getContext('2d');
+                transCtx.drawImage(this.canvas, 0, 0);
+                
+                // Switch mode
+                this.currentMode = this.currentMode === 'world_map' ? 'side_scroll' : 'world_map';
+                
+                setTimeout(() => {
+                    this.isTransitioning = false;
+                    this.transitionFrame = null;
+                }, 800);
+            }
+            
+            update() {
+                this.handleInput();
+                
+                if (this.isTransitioning) {
+                    this.transitionProgress += 16;
+                }
+            }
+            
+            render() {
+                this.ctx.fillStyle = '#000';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                if (this.currentMode === 'world_map') {
+                    this.renderWorldMap();
+                } else {
+                    this.renderSideScroll();
+                }
+                
+                if (this.isTransitioning && this.transitionFrame) {
+                    const alpha = 1 - Math.min(1, this.transitionProgress / 800);
+                    this.ctx.save();
+                    this.ctx.globalAlpha = alpha;
+                    this.ctx.drawImage(this.transitionFrame, 0, 0);
+                    this.ctx.restore();
+                }
+                
+                this.renderUI();
+            }
+            
+            renderWorldMap() {
+                this.ctx.save();
+                this.ctx.scale(this.worldMap.camera.zoom, this.worldMap.camera.zoom);
+                this.ctx.translate(-this.worldMap.camera.x, -this.worldMap.camera.y);
+                
+                const tileSize = this.worldMap.tileSize;
+                const colors = ['#228B22', '#006400', '#8B4513', '#F4A460', '#556B2F', '#A0522D'];
+                
+                // Render terrain
+                for (let y = 0; y < this.worldMap.height; y++) {
+                    for (let x = 0; x < this.worldMap.width; x++) {
+                        const terrain = this.terrain[y][x];
+                        this.ctx.fillStyle = colors[terrain] || '#228B22';
+                        this.ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+                    }
+                }
+                
+                // Render locations
+                for (const location of this.locations) {
+                    if (!location.discovered) continue;
+                    
+                    const x = location.x * tileSize;
+                    const y = location.y * tileSize;
+                    
+                    this.ctx.fillStyle = location.visited ? '#FFD700' : '#FFA500';
+                    this.ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
+                    
+                    this.ctx.fillStyle = location.type === 'city' ? '#FFD700' : '#8B0000';
+                    const centerX = x + tileSize / 2;
+                    const centerY = y + tileSize / 2;
+                    
+                    if (location.type === 'city') {
+                        this.ctx.fillRect(centerX - 6, centerY - 6, 12, 12);
+                    } else {
+                        this.ctx.beginPath();
+                        this.ctx.arc(centerX, centerY, 6, 0, Math.PI * 2);
+                        this.ctx.fill();
+                    }
+                }
+                
+                // Render player
+                const px = this.worldPlayer.x * tileSize;
+                const py = this.worldPlayer.y * tileSize;
+                this.ctx.fillStyle = '#FFFF00';
+                this.ctx.fillRect(px + 4, py + 4, tileSize - 8, tileSize - 8);
+                this.ctx.strokeStyle = '#000';
+                this.ctx.lineWidth = 1;
+                this.ctx.strokeRect(px + 4, py + 4, tileSize - 8, tileSize - 8);
+                
+                this.ctx.restore();
+            }
+            
+            renderSideScroll() {
+                const camera = this.sideScroll.camera;
+                
+                // Render parallax layers
+                for (let i = 0; i < this.sideScroll.parallax.length; i++) {
+                    const layer = this.sideScroll.parallax[i];
+                    this.ctx.fillStyle = layer.color;
+                    
+                    const parallaxX = camera.x * layer.speed;
+                    const width = 1024;
+                    
+                    // Tile the background
+                    for (let x = Math.floor(parallaxX / width) * width - parallaxX; x < this.canvas.width; x += width) {
+                        this.ctx.fillRect(x, i * 100, width, this.canvas.height - i * 100);
+                    }
+                    
+                    if (i === 1) {
+                        // Add building silhouettes
+                        this.ctx.fillStyle = '#1C1C1C';
+                        for (let j = 0; j < 10; j++) {
+                            const bx = (j * 120 - parallaxX) % this.canvas.width;
+                            const height = 100 + (j * 37) % 150;
+                            this.ctx.fillRect(bx, this.canvas.height - height, 80, height);
+                        }
+                    }
+                }
+                
+                this.ctx.save();
+                this.ctx.translate(-camera.x, -camera.y);
+                
+                // Render platforms
+                this.ctx.fillStyle = '#666';
+                for (const platform of this.sideScroll.platforms) {
+                    this.ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+                }
+                
+                // Render player
+                this.ctx.fillStyle = '#FFFF00';
+                this.ctx.fillRect(this.sidePlayer.x, this.sidePlayer.y, 16, 32);
+                this.ctx.strokeStyle = '#000';
+                this.ctx.strokeRect(this.sidePlayer.x, this.sidePlayer.y, 16, 32);
+                
+                // Show some items at proper scales (demo)
+                this.renderScaledItems();
+                
+                this.ctx.restore();
+            }
+            
+            renderScaledItems() {
+                // Demonstrate the scaling system
+                const items = [
+                    { type: 'character', x: 200, y: 518, color: '#FF8800' },
+                    { type: 'weapon', x: 350, y: 530, color: '#888888' },
+                    { type: 'needle', x: 450, y: 540, color: '#00FF00' },
+                    { type: 'bottle', x: 550, y: 530, color: '#4169E1' },
+                    { type: 'backpack', x: 650, y: 520, color: '#8B4513' }
+                ];
+                
+                for (const item of items) {
+                    this.ctx.fillStyle = item.color;
+                    
+                    let size = 16; // Default
+                    switch (item.type) {
+                        case 'character': size = 32; break;
+                        case 'weapon': size = 12; break;
+                        case 'needle': size = 2; break;
+                        case 'bottle': size = 8; break;
+                        case 'backpack': size = 18; break;
+                    }
+                    
+                    this.ctx.fillRect(item.x, item.y, size, size);
+                    
+                    // Label
+                    this.ctx.fillStyle = '#FFFFFF';
+                    this.ctx.font = '10px monospace';
+                    this.ctx.fillText(`${item.type} (${size}px)`, item.x, item.y - 5);
+                }
+            }
+            
+            renderUI() {
+                // Mode display in top right
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                this.ctx.fillRect(this.canvas.width - 150, 10, 140, 60);
+                
+                this.ctx.fillStyle = '#FFFFFF';
+                this.ctx.font = '14px monospace';
+                this.ctx.fillText('Mode:', this.canvas.width - 140, 30);
+                this.ctx.fillText(this.currentMode.toUpperCase(), this.canvas.width - 140, 50);
+                
+                if (this.currentMode === 'side_scroll') {
+                    // Physics debug
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                    this.ctx.fillRect(10, this.canvas.height - 100, 250, 90);
+                    
+                    this.ctx.fillStyle = '#00FF00';
+                    this.ctx.font = '12px monospace';
+                    this.ctx.fillText('Physics Active:', 20, this.canvas.height - 80);
+                    this.ctx.fillText(`Pos: (${this.sidePlayer.x.toFixed(1)}, ${this.sidePlayer.y.toFixed(1)})`, 20, this.canvas.height - 65);
+                    this.ctx.fillText(`Vel: (${this.sidePlayer.vx.toFixed(1)}, ${this.sidePlayer.vy.toFixed(1)})`, 20, this.canvas.height - 50);
+                    this.ctx.fillText(`Grounded: ${this.sidePlayer.grounded}`, 20, this.canvas.height - 35);
+                    this.ctx.fillText('WASD: Move, Space: Jump', 20, this.canvas.height - 20);
+                }
+            }
+            
+            start() {
+                const gameLoop = () => {
+                    this.update();
+                    this.render();
+                    requestAnimationFrame(gameLoop);
+                };
+                gameLoop();
+            }
+        }
+        
+        // Start the demo
+        new DemoGame();
+        
+        // Add some helpful console info
+        console.log('🎮 UHO: Fate of the Grid - Zelda 2 Style Demo');
+        console.log('This demo shows the integration of:');
+        console.log('- World Map (Ultima 4 style navigation)');
+        console.log('- Side-scrolling (Zelda 2 style physics and camera)');
+        console.log('- Parallax backgrounds');
+        console.log('- Sprite scaling system (items sized by importance)');
+        console.log('- Smooth transitions between game modes');
+        console.log('- 2D physics with gravity and collision');
+        console.log('Use TAB to switch between modes!');
+    </script>
+</body>
+</html>
