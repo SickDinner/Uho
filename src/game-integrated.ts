@@ -6,7 +6,11 @@ import { inputManager } from '@core/input.ts';
 import { audioManager } from '@core/audio.ts';
 import { tweenManager } from '@core/animation.ts';
 import { advancedAudioEngine } from '@core/advanced-audio.ts';
-import { audioAssetRegistry } from '@core/audio-assets.ts';
+import {
+  describeLoadedAudio,
+  ensureAudioInitialized,
+  updateListenerPosition,
+} from '@/audio/audio-integration-example.ts';
 import { assetManager } from '@core/asset-manager.ts';
 
 // Import existing game scene
@@ -332,7 +336,7 @@ class GameplayScene extends Scene {
         this.addMovementFeedback(newX, newY);
         
         // Update listener position for spatial audio
-        advancedAudioEngine.setListenerPosition({ x: newX, y: newY });
+        updateListenerPosition({ x: newX, y: newY });
         
         // Check for location interactions
         this.checkLocationInteractions(newX, newY);
@@ -386,17 +390,20 @@ class GameplayScene extends Scene {
   // Advanced Audio System Integration
   private async initializeAudio(): Promise<void> {
     try {
-      // Ensure audio assets are loaded
-      await audioAssetRegistry.initialize();
-      
-      // Set initial listener position
+      // Ensure audio assets are loaded and baseline mixing is configured
       if (this.playerId) {
         const transform = this.world.componentManager.getComponent(this.playerId, Transform);
-        if (transform) {
-          advancedAudioEngine.setListenerPosition({ x: transform.x, y: transform.y });
-        }
+        await ensureAudioInitialized(
+          transform ? { x: transform.x, y: transform.y } : undefined
+        );
+      } else {
+        await ensureAudioInitialized();
       }
-      
+
+      // Provide a compact summary in the console for debugging builds
+      const summaries = describeLoadedAudio();
+      console.log('🎧 Audio categories ready:', summaries);
+
       console.log('🎵 Advanced audio system initialized for gameplay');
     } catch (error) {
       console.warn('Failed to initialize advanced audio:', error);
@@ -826,8 +833,8 @@ export class IntegratedGame {
       
       // Initialize audio assets
       console.log('Loading audio assets...');
-      await audioAssetRegistry.initialize();
-      
+      await ensureAudioInitialized();
+
       console.log('All assets loaded successfully!');
     } catch (error) {
       console.warn('Some assets failed to load, but continuing anyway:', error);
