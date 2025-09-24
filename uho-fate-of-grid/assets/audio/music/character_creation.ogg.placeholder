@@ -1,0 +1,12 @@
+# Character Creation Music Placeholder
+
+This file represents where the character creation theme music should be placed.
+
+File: character_creation.ogg
+Type: Audio (Ogg Vorbis)
+Description: Atmospheric music for the character creation screen
+Recommended: Ambient electronic music with cyberpunk/dystopian tones
+
+The character creation system will attempt to load this audio file when entering
+the character creation scene. If the file is not present, the system will
+continue without music but may log warnings.

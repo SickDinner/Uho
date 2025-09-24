@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UHO Apocalyptic Sprite Creator</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .sprite-section {
+            background: #222;
+            border: 2px solid #444;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        h1, h2 {
+            color: #ff6666;
+            text-shadow: 0 0 10px #ff6666;
+        }
+        .sprite-preview {
+            display: inline-block;
+            margin: 10px;
+            background: #333;
+            border: 1px solid #555;
+            text-align: center;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .pixel-grid {
+            display: inline-block;
+            border: 2px solid #00ff00;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+        .size-info {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+        }
+        .create-btn {
+            background: #ff6666;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-family: inherit;
+            margin: 10px 5px;
+        }
+        .create-btn:hover {
+            background: #ff8888;
+        }
+        .download-section {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧟 UHO: Fate of the Grid - Apocalyptic Sprite Creator</h1>
+        <p>Creating properly scaled sprites for the post-apocalyptic theme. Needles will be tiny (~2px), characters large (~32px).</p>
+
+        <div class="sprite-section">
+            <h2>🏃‍♂️ Character Sprites (32x32px)</h2>
+            <div id="character-sprites"></div>
+            <button class="create-btn" onclick="createCharacterSprites()">Generate Character Sprites</button>
+        </div>
+
+        <div class="sprite-section">
+            <h2>🔫 Weapon Sprites (20x8px)</h2>
+            <div id="weapon-sprites"></div>
+            <button class="create-btn" onclick="createWeaponSprites()">Generate Weapon Sprites</button>
+        </div>
+
+        <div class="sprite-section">
+            <h2>💉 Tiny Item Sprites (8x8px) - Needles, Pills</h2>
+            <div id="tiny-sprites"></div>
+            <button class="create-btn" onclick="createTinySprites()">Generate Tiny Item Sprites</button>
+        </div>
+
+        <div class="sprite-section">
+            <h2>🍺 Small Item Sprites (12x12px) - Bottles, Tools</h2>
+            <div id="small-sprites"></div>
+            <button class="create-btn" onclick="createSmallSprites()">Generate Small Item Sprites</button>
+        </div>
+
+        <div class="sprite-section">
+            <h2>🎒 Medium Item Sprites (16x16px) - Equipment</h2>
+            <div id="medium-sprites"></div>
+            <button class="create-btn" onclick="createMediumSprites()">Generate Medium Item Sprites</button>
+        </div>
+
+        <div class="download-section">
+            <h2>📦 Download All Sprites</h2>
+            <button class="create-btn" onclick="downloadAllSprites()">Download All as ZIP</button>
+            <p><strong>Instructions:</strong></p>
+            <ol>
+                <li>Generate all sprite categories above</li>
+                <li>Download the generated sprites</li>
+                <li>Extract to appropriate folders in assets/sprites/</li>
+                <li>Use the skaalain system to ensure proper scaling</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Apocalyptic color palette
+        const COLORS = {
+            bg: '#1a1a1a',
+            rust: '#8B4513',
+            blood: '#8B0000',
+            metal: '#708090',
+            toxic: '#32CD32',
+            ash: '#696969',
+            yellow: '#DAA520',
+            skin: '#D2B48C',
+            darkRed: '#8B0000',
+            green: '#556B2F',
+            blue: '#4169E1'
+        };
+
+        function createCanvas(width, height, scale = 8) {
+            const canvas = document.createElement('canvas');
+            canvas.width = width * scale;
+            canvas.height = height * scale;
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+            return { canvas, ctx, scale };
+        }
+
+        function drawPixel(ctx, x, y, color, scale) {
+            ctx.fillStyle = color;
+            ctx.fillRect(x * scale, y * scale, scale, scale);
+        }
+
+        function createSpritePreview(canvas, name, actualSize) {
+            const preview = document.createElement('div');
+            preview.className = 'sprite-preview';
+            preview.innerHTML = `
+                <div><strong>${name}</strong></div>
+                ${canvas.outerHTML}
+                <div class="size-info">Actual: ${actualSize} | Preview: ${canvas.width}x${canvas.height}</div>
+            `;
+            return preview;
+        }
+
+        function createCharacterSprites() {
+            const container = document.getElementById('character-sprites');
+            container.innerHTML = '';
+
+            // Survivor character (32x32)
+            const { canvas: survivorCanvas, ctx: survivorCtx, scale } = createCanvas(32, 32);
+            
+            // Draw a simple survivor character
+            // Head
+            for (let x = 12; x < 20; x++) {
+                for (let y = 8; y < 16; y++) {
+                    drawPixel(survivorCtx, x, y, COLORS.skin, scale);
+                }
+            }
+            // Eyes
+            drawPixel(survivorCtx, 14, 11, COLORS.bg, scale);
+            drawPixel(survivorCtx, 17, 11, COLORS.bg, scale);
+            // Body (torn clothes)
+            for (let x = 13; x < 19; x++) {
+                for (let y = 16; y < 24; y++) {
+                    drawPixel(survivorCtx, x, y, COLORS.rust, scale);
+                }
+            }
+            // Legs
+            for (let x = 14; x < 18; x++) {
+                for (let y = 24; y < 30; y++) {
+                    drawPixel(survivorCtx, x, y, COLORS.ash, scale);
+                }
+            }
+            // Arms
+            drawPixel(survivorCtx, 12, 17, COLORS.skin, scale);
+            drawPixel(survivorCtx, 19, 17, COLORS.skin, scale);
+            drawPixel(survivorCtx, 12, 18, COLORS.skin, scale);
+            drawPixel(survivorCtx, 19, 18, COLORS.skin, scale);
+
+            container.appendChild(createSpritePreview(survivorCanvas, 'Apocalypse Survivor', '32x32px'));
+
+            // Raider character
+            const { canvas: raiderCanvas, ctx: raiderCtx } = createCanvas(32, 32);
+            
+            // Similar structure but darker, more menacing
+            for (let x = 12; x < 20; x++) {
+                for (let y = 8; y < 16; y++) {
+                    drawPixel(raiderCtx, x, y, COLORS.skin, scale);
+                }
+            }
+            // Mask/goggles
+            drawPixel(raiderCtx, 13, 10, COLORS.metal, scale);
+            drawPixel(raiderCtx, 18, 10, COLORS.metal, scale);
+            drawPixel(raiderCtx, 14, 10, COLORS.bg, scale);
+            drawPixel(raiderCtx, 17, 10, COLORS.bg, scale);
+            // Dark clothing
+            for (let x = 13; x < 19; x++) {
+                for (let y = 16; y < 24; y++) {
+                    drawPixel(raiderCtx, x, y, COLORS.bg, scale);
+                }
+            }
+            // Weapon on back
+            drawPixel(raiderCtx, 11, 16, COLORS.metal, scale);
+            drawPixel(raiderCtx, 11, 17, COLORS.metal, scale);
+
+            container.appendChild(createSpritePreview(raiderCanvas, 'Wasteland Raider', '32x32px'));
+        }
+
+        function createWeaponSprites() {
+            const container = document.getElementById('weapon-sprites');
+            container.innerHTML = '';
+
+            // Pistol (20x8)
+            const { canvas: pistolCanvas, ctx: pistolCtx, scale } = createCanvas(20, 8);
+            
+            // Draw pistol shape
+            for (let x = 4; x < 16; x++) {
+                for (let y = 2; y < 6; y++) {
+                    drawPixel(pistolCtx, x, y, COLORS.metal, scale);
+                }
+            }
+            // Grip
+            for (let x = 2; x < 6; x++) {
+                for (let y = 4; y < 7; y++) {
+                    drawPixel(pistolCtx, x, y, COLORS.rust, scale);
+                }
+            }
+            // Barrel
+            drawPixel(pistolCtx, 16, 3, COLORS.bg, scale);
+            
+            container.appendChild(createSpritePreview(pistolCanvas, 'Makeshift Pistol', '20x8px'));
+
+            // Rifle (20x8)
+            const { canvas: rifleCanvas, ctx: rifleCtx } = createCanvas(20, 8);
+            
+            // Long barrel
+            for (let x = 0; x < 18; x++) {
+                drawPixel(rifleCtx, x, 3, COLORS.metal, scale);
+                drawPixel(rifleCtx, x, 4, COLORS.metal, scale);
+            }
+            // Stock
+            for (let x = 14; x < 19; x++) {
+                for (let y = 1; y < 7; y++) {
+                    drawPixel(rifleCtx, x, y, COLORS.rust, scale);
+                }
+            }
+            
+            container.appendChild(createSpritePreview(rifleCanvas, 'Scavenged Rifle', '20x8px'));
+        }
+
+        function createTinySprites() {
+            const container = document.getElementById('tiny-sprites');
+            container.innerHTML = '';
+
+            // Syringe (8x8) - This will be tiny in game!
+            const { canvas: syringeCanvas, ctx: syringeCtx, scale } = createCanvas(8, 8, 16);
+            
+            // Needle
+            drawPixel(syringeCtx, 1, 3, COLORS.metal, scale);
+            drawPixel(syringeCtx, 2, 3, COLORS.metal, scale);
+            // Syringe body
+            drawPixel(syringeCtx, 3, 2, COLORS.ash, scale);
+            drawPixel(syringeCtx, 4, 2, COLORS.ash, scale);
+            drawPixel(syringeCtx, 5, 2, COLORS.ash, scale);
+            drawPixel(syringeCtx, 3, 3, COLORS.toxic, scale);
+            drawPixel(syringeCtx, 4, 3, COLORS.toxic, scale);
+            drawPixel(syringeCtx, 5, 3, COLORS.toxic, scale);
+            drawPixel(syringeCtx, 3, 4, COLORS.ash, scale);
+            drawPixel(syringeCtx, 4, 4, COLORS.ash, scale);
+            drawPixel(syringeCtx, 5, 4, COLORS.ash, scale);
+            // Plunger
+            drawPixel(syringeCtx, 6, 3, COLORS.metal, scale);
+
+            container.appendChild(createSpritePreview(syringeCanvas, 'Toxic Syringe', '8x8px'));
+
+            // Pills (8x8)
+            const { canvas: pillsCanvas, ctx: pillsCtx } = createCanvas(8, 8, 16);
+            
+            // Small pills scattered
+            drawPixel(pillsCtx, 2, 2, COLORS.blue, scale);
+            drawPixel(pillsCtx, 5, 2, COLORS.yellow, scale);
+            drawPixel(pillsCtx, 3, 4, COLORS.blood, scale);
+            drawPixel(pillsCtx, 6, 5, COLORS.toxic, scale);
+            drawPixel(pillsCtx, 2, 6, COLORS.blue, scale);
+
+            container.appendChild(createSpritePreview(pillsCanvas, 'Scattered Pills', '8x8px'));
+        }
+
+        function createSmallSprites() {
+            const container = document.getElementById('small-sprites');
+            container.innerHTML = '';
+
+            // Bottle (12x12)
+            const { canvas: bottleCanvas, ctx: bottleCtx, scale } = createCanvas(12, 12, 12);
+            
+            // Bottle outline
+            for (let y = 2; y < 10; y++) {
+                for (let x = 4; x < 8; x++) {
+                    if (y == 2 || y == 9 || x == 4 || x == 7) {
+                        drawPixel(bottleCtx, x, y, COLORS.ash, scale);
+                    } else {
+                        drawPixel(bottleCtx, x, y, COLORS.toxic, scale);
+                    }
+                }
+            }
+            // Bottle neck
+            drawPixel(bottleCtx, 5, 1, COLORS.ash, scale);
+            drawPixel(bottleCtx, 6, 1, COLORS.ash, scale);
+            drawPixel(bottleCtx, 5, 2, COLORS.ash, scale);
+            drawPixel(bottleCtx, 6, 2, COLORS.ash, scale);
+
+            container.appendChild(createSpritePreview(bottleCanvas, 'Chem Bottle', '12x12px'));
+
+            // Knife (12x12)
+            const { canvas: knifeCanvas, ctx: knifeCtx } = createCanvas(12, 12, 12);
+            
+            // Blade
+            for (let x = 2; x < 8; x++) {
+                drawPixel(knifeCtx, x, 5, COLORS.metal, scale);
+                drawPixel(knifeCtx, x, 6, COLORS.metal, scale);
+            }
+            drawPixel(knifeCtx, 1, 6, COLORS.metal, scale);
+            // Handle
+            for (let x = 8; x < 11; x++) {
+                drawPixel(knifeCtx, x, 5, COLORS.rust, scale);
+                drawPixel(knifeCtx, x, 6, COLORS.rust, scale);
+                drawPixel(knifeCtx, x, 7, COLORS.rust, scale);
+            }
+
+            container.appendChild(createSpritePreview(knifeCanvas, 'Rusty Knife', '12x12px'));
+        }
+
+        function createMediumSprites() {
+            const container = document.getElementById('medium-sprites');
+            container.innerHTML = '';
+
+            // Backpack (16x16)
+            const { canvas: backpackCanvas, ctx: backpackCtx, scale } = createCanvas(16, 16, 10);
+            
+            // Main body
+            for (let x = 4; x < 12; x++) {
+                for (let y = 3; y < 13; y++) {
+                    if (x == 4 || x == 11 || y == 3 || y == 12) {
+                        drawPixel(backpackCtx, x, y, COLORS.ash, scale);
+                    } else {
+                        drawPixel(backpackCtx, x, y, COLORS.green, scale);
+                    }
+                }
+            }
+            // Straps
+            drawPixel(backpackCtx, 3, 4, COLORS.rust, scale);
+            drawPixel(backpackCtx, 12, 4, COLORS.rust, scale);
+            drawPixel(backpackCtx, 3, 8, COLORS.rust, scale);
+            drawPixel(backpackCtx, 12, 8, COLORS.rust, scale);
+            
+            // Patches/damage
+            drawPixel(backpackCtx, 6, 6, COLORS.bg, scale);
+            drawPixel(backpackCtx, 9, 9, COLORS.bg, scale);
+
+            container.appendChild(createSpritePreview(backpackCanvas, 'Worn Backpack', '16x16px'));
+
+            // Gas mask (16x16)
+            const { canvas: maskCanvas, ctx: maskCtx } = createCanvas(16, 16, 10);
+            
+            // Mask body
+            for (let x = 5; x < 11; x++) {
+                for (let y = 6; y < 12; y++) {
+                    drawPixel(maskCtx, x, y, COLORS.ash, scale);
+                }
+            }
+            // Eye pieces
+            drawPixel(maskCtx, 6, 7, COLORS.bg, scale);
+            drawPixel(maskCtx, 9, 7, COLORS.bg, scale);
+            // Filter
+            for (let x = 3; x < 6; x++) {
+                for (let y = 8; y < 11; y++) {
+                    drawPixel(maskCtx, x, y, COLORS.metal, scale);
+                }
+            }
+            // Straps
+            drawPixel(maskCtx, 4, 6, COLORS.rust, scale);
+            drawPixel(maskCtx, 11, 6, COLORS.rust, scale);
+
+            container.appendChild(createSpritePreview(maskCanvas, 'Gas Mask', '16x16px'));
+        }
+
+        function downloadAllSprites() {
+            alert('Sprite download functionality would be implemented here.\n\nFor now, right-click on each sprite preview and "Save Image As" to download individually.\n\nRecommended folder structure:\n- Characters → assets/sprites/characters/\n- Weapons → assets/sprites/items/medium/\n- Tiny items → assets/sprites/items/tiny/\n- Small items → assets/sprites/items/small/\n- Medium items → assets/sprites/items/medium/');
+        }
+    </script>
+</body>
+</html>

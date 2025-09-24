@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UHO Sprite Creator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #222;
+            color: white;
+        }
+        
+        .canvas-container {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        canvas {
+            border: 2px solid #444;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+        
+        .controls {
+            margin: 20px 0;
+        }
+        
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #444;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background: #666;
+        }
+        
+        .instructions {
+            background: #333;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>UHO: Fate of the Grid - Sprite Creator</h1>
+    
+    <div class="instructions">
+        <h3>Instructions:</h3>
+        <ol>
+            <li>Click "Generate Sample Sprite" to create a test player sprite</li>
+            <li>Right-click the sprite and "Save Image As..." to your assets/sprites/ folder</li>
+            <li>Save as "player.png" to use with your game</li>
+        </ol>
+    </div>
+    
+    <div class="controls">
+        <button onclick="generateSampleSprite()">Generate Sample Sprite</button>
+        <button onclick="downloadSprite()">Download Sprite</button>
+    </div>
+    
+    <div class="canvas-container">
+        <div>
+            <h3>64x64 Sprite Sheet (Original)</h3>
+            <canvas id="spriteCanvas" width="64" height="64"></canvas>
+        </div>
+        <div>
+            <h3>256x256 Preview (4x Scale)</h3>
+            <canvas id="previewCanvas" width="256" height="256"></canvas>
+        </div>
+    </div>
+    
+    <div class="instructions">
+        <h3>Sprite Layout:</h3>
+        <ul>
+            <li><strong>Row 0:</strong> Walking South (Down) - Frames 0-3</li>
+            <li><strong>Row 1:</strong> Walking West (Left) - Frames 4-7</li>
+            <li><strong>Row 2:</strong> Walking East (Right) - Frames 8-11</li>
+            <li><strong>Row 3:</strong> Walking North (Up) - Frames 12-15</li>
+        </ul>
+    </div>
+    
+    <script>
+        function generateSampleSprite() {
+            const canvas = document.getElementById('spriteCanvas');
+            const ctx = canvas.getContext('2d');
+            const previewCanvas = document.getElementById('previewCanvas');
+            const previewCtx = previewCanvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, 64, 64);
+            ctx.imageSmoothingEnabled = false;
+            
+            // Colors
+            const yellow = '#FFFF00';
+            const white = '#FFFFFF';
+            const black = '#000000';
+            const darkYellow = '#F0F000';
+            
+            // Frame positions for 4x4 grid of 16x16 frames
+            const frames = [
+                // Row 0: South (down) facing
+                [0, 0], [16, 0], [32, 0], [48, 0],
+                // Row 1: West (left) facing  
+                [0, 16], [16, 16], [32, 16], [48, 16],
+                // Row 2: East (right) facing
+                [0, 32], [16, 32], [32, 32], [48, 32],
+                // Row 3: North (up) facing
+                [0, 48], [16, 48], [32, 48], [48, 48]
+            ];
+            
+            // Draw each frame
+            frames.forEach(([x, y], i) => {
+                const isWalkFrame = i % 4 === 1 || i % 4 === 3;
+                const bodyColor = isWalkFrame ? darkYellow : yellow;
+                const offsetY = isWalkFrame ? 1 : 0;
+                
+                // Body (filled rectangle with rounded corners effect)
+                ctx.fillStyle = black;
+                ctx.fillRect(x + 3, y + 3 + offsetY, 10, 10);
+                ctx.fillStyle = bodyColor;
+                ctx.fillRect(x + 4, y + 4 + offsetY, 8, 8);
+                
+                // Direction indicator (white pixel)
+                ctx.fillStyle = white;
+                if (i < 4) {  // South facing
+                    ctx.fillRect(x + 7, y + 9 + offsetY, 2, 2);
+                } else if (i < 8) {  // West facing
+                    ctx.fillRect(x + 5, y + 7 + offsetY, 2, 2);
+                } else if (i < 12) {  // East facing
+                    ctx.fillRect(x + 9, y + 7 + offsetY, 2, 2);
+                } else {  // North facing
+                    ctx.fillRect(x + 7, y + 5 + offsetY, 2, 2);
+                }
+                
+                // Eyes (small white pixels)
+                ctx.fillStyle = white;
+                ctx.fillRect(x + 6, y + 6 + offsetY, 1, 1);
+                ctx.fillRect(x + 9, y + 6 + offsetY, 1, 1);
+            });
+            
+            // Draw scaled preview
+            previewCtx.imageSmoothingEnabled = false;
+            previewCtx.clearRect(0, 0, 256, 256);
+            previewCtx.drawImage(canvas, 0, 0, 64, 64, 0, 0, 256, 256);
+            
+            console.log('Sample sprite generated!');
+        }
+        
+        function downloadSprite() {
+            const canvas = document.getElementById('spriteCanvas');
+            const link = document.createElement('a');
+            link.download = 'player.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+        
+        // Generate initial sprite
+        generateSampleSprite();
+    </script>
+</body>
+</html>

@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UHO: Fate of the Grid - Test</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #1a1a1a;
+      font-family: 'Courier New', monospace;
+      color: #ffffff;
+    }
+    
+    #gameContainer {
+      display: flex;
+      width: 1100px;
+      height: 600px;
+      margin: 0 auto;
+      border: 2px solid #444;
+    }
+    
+    #gameCanvas {
+      flex: 1;
+      background: #000;
+      image-rendering: pixelated;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: crisp-edges;
+    }
+    
+    #ui {
+      width: 300px;
+      background: #2a2a2a;
+      padding: 10px;
+      box-sizing: border-box;
+      overflow-y: auto;
+    }
+    
+    .ui-panel {
+      margin-bottom: 20px;
+      border: 1px solid #444;
+      padding: 10px;
+      background: #333;
+    }
+    
+    .ui-title {
+      color: #ffff00;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+      font-size: 12px;
+    }
+    
+    .need-bar {
+      width: 100%;
+      height: 8px;
+      background: #666;
+      margin: 2px 0;
+      border: 1px solid #888;
+    }
+    
+    .need-fill {
+      height: 100%;
+      background: #00ff00;
+      transition: width 0.3s, background-color 0.3s;
+    }
+    
+    .need-fill.low {
+      background: #ffff00;
+    }
+    
+    .need-fill.critical {
+      background: #ff0000;
+    }
+    
+    #messageLog {
+      height: 200px;
+      overflow-y: auto;
+      background: #1a1a1a;
+      border: 1px solid #444;
+      padding: 8px;
+      font-size: 11px;
+      line-height: 1.3;
+    }
+    
+    .message {
+      margin-bottom: 4px;
+      color: #ccc;
+    }
+    
+    .message.system {
+      color: #ffff00;
+    }
+    
+    .message.combat {
+      color: #ff6666;
+    }
+    
+    .message.drug {
+      color: #ff66ff;
+    }
+    
+    .controls {
+      color: #aaa;
+      font-size: 12px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>UHO: Fate of the Grid - Testi</h1>
+  <p>Perusversio ilman täysiä riippuvuuksia</p>
+  
+  <div id="gameContainer">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div id="ui">
+      <div class="ui-panel">
+        <div class="ui-title">Tilastot</div>
+        <div id="statsPanel"></div>
+      </div>
+      
+      <div class="ui-panel">
+        <div class="ui-title">Tarpeet</div>
+        <div id="needsPanel"></div>
+      </div>
+      
+      <div class="ui-panel">
+        <div class="ui-title">Tila</div>
+        <div id="statusPanel">
+          <div class="stat-row">
+            <span>Käteinen:</span>
+            <span id="cash">250€</span>
+          </div>
+          <div class="stat-row">
+            <span>Pankki:</span>
+            <span id="bank">500€</span>
+          </div>
+          <div class="stat-row">
+            <span>Kuumuus:</span>
+            <span id="heat">0</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="ui-panel">
+        <div class="ui-title">Viestit</div>
+        <div id="messageLog"></div>
+      </div>
+      
+      <div class="controls">
+        <p><strong>Ohjaimet:</strong></p>
+        <p>WASD/Nuolinäppäimet: Liiku</p>
+        <p>E: Käytä/Tutki</p>
+        <p>I: Reppu</p>
+        <p>T: Lepää</p>
+        <p>D: Käytä huumetta (testi)</p>
+      </div>
+    </div>
+  </div>
+  
+  <script type="module">
+    // Simplified ECS for testing without TypeScript compilation
+    
+    class Component {
+      constructor(entityId) {
+        this.entityId = entityId;
+      }
+    }
+    
+    class Transform extends Component {
+      constructor(entityId, x = 0, y = 0, facing = 'south') {
+        super(entityId);
+        this.x = x;
+        this.y = y;
+        this.facing = facing;
+      }
+      
+      getPosition() {
+        return { x: this.x, y: this.y };
+      }
+      
+      setPosition(x, y) {
+        this.x = x;
+        this.y = y;
+      }
+    }
+    
+    class Stats extends Component {
+      constructor(entityId, initialStats = {}) {
+        super(entityId);
+        this.stats = {
+          strength: 50,
+          endurance: 50,
+          agility: 50,
+          intelligence: 50,
+          perception: 50,
+          charisma: 50,
+          willpower: 50,
+          luck: 50,
+          reflex: 50,
+          tolerance: 50,
+          stress: 50,
+          technical: 50,
+          crime: 20,
+          medical: 30,
+          cunning: 40,
+          ...initialStats
+        };
+      }
+      
+      getStat(stat) {
+        return Math.max(0, Math.min(100, this.stats[stat]));
+      }
+      
+      modifyStat(stat, amount) {
+        this.stats[stat] = Math.max(0, Math.min(100, this.stats[stat] + amount));
+      }
+    }
+    
+    class Needs extends Component {
+      constructor(entityId, initialNeeds = {}) {
+        super(entityId);
+        this.needs = {
+          hunger: 80,
+          thirst: 80,
+          sleep: 80,
+          warmth: 80,
+          social: 60,
+          pain: 0,
+          hygiene: 70,
+          ...initialNeeds
+        };
+        this.lastTick = Date.now();
+      }
+      
+      getNeed(need) {
+        return Math.max(0, Math.min(100, this.needs[need]));
+      }
+      
+      modifyNeed(need, amount) {
+        this.needs[need] = Math.max(0, Math.min(100, this.needs[need] + amount));
+      }
+    }
+    
+    // Simple game class
+    class SimpleGame {
+      constructor() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.isRunning = false;
+        this.lastTime = 0;
+        this.lastInput = 0;
+        this.inputDelay = 200;
+        
+        // Player data
+        this.player = {
+          transform: new Transform(1, 10, 10),
+          stats: new Stats(1, {
+            strength: 45, endurance: 50, agility: 55, intelligence: 60,
+            perception: 50, charisma: 40, willpower: 55, luck: 50,
+            reflex: 60, tolerance: 30, stress: 60, technical: 35,
+            crime: 15, medical: 25, cunning: 45
+          }),
+          needs: new Needs(1),
+          cash: 250,
+          bank: 500,
+          heat: 0
+        };
+        
+        this.keys = new Set();
+        this.messages = [];
+        this.maxMessages = 50;
+        
+        this.setupInput();
+        this.setupCanvas();
+        this.updateUI();
+        
+        this.addMessage('Tervetuloa UHO: Fate of the Grid -peliin!', 'system');
+        this.addMessage('Käytä WASD tai nuolinäppäimiä liikkumiseen.', 'system');
+        this.addMessage('Tämä on yksinkertaistettu testiversio.', 'system');
+      }
+      
+      setupCanvas() {
+        this.ctx.imageSmoothingEnabled = false;
+        this.ctx.textAlign = 'left';
+        this.ctx.textBaseline = 'top';
+      }
+      
+      setupInput() {
+        document.addEventListener('keydown', (e) => {
+          this.keys.add(e.key.toLowerCase());
+          if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'e', 'i', 't', 'd', 'f', 'l', ' '].includes(e.key.toLowerCase())) {
+            e.preventDefault();
+          }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+          this.keys.delete(e.key.toLowerCase());
+        });
+      }
+      
+      handleInput() {
+        if (Date.now() - this.lastInput < this.inputDelay) return;
+        
+        const transform = this.player.transform;
+        let moved = false;
+        let newX = transform.x;
+        let newY = transform.y;
+        let newFacing = transform.facing;
+        
+        // Movement
+        if (this.keys.has('w') || this.keys.has('arrowup')) {
+          newY--; newFacing = 'north'; moved = true;
+        } else if (this.keys.has('s') || this.keys.has('arrowdown')) {
+          newY++; newFacing = 'south'; moved = true;
+        } else if (this.keys.has('a') || this.keys.has('arrowleft')) {
+          newX--; newFacing = 'west'; moved = true;
+        } else if (this.keys.has('d') || this.keys.has('arrowright')) {
+          newX++; newFacing = 'east'; moved = true;
+        }
+        
+        // Actions
+        if (this.keys.has('e')) {
+          this.addMessage('Ei ole mitään käytettävää tässä.', 'normal');
+          this.lastInput = Date.now();
+          return;
+        }
+        
+        if (this.keys.has('i')) {
+          this.addMessage('Reppu on tyhjä.', 'normal');
+          this.lastInput = Date.now();
+          return;
+        }
+        
+        if (this.keys.has('t')) {
+          this.rest();
+          this.lastInput = Date.now();
+          return;
+        }
+        
+        if (this.keys.has('d')) {
+          this.testDrug();
+          this.lastInput = Date.now();
+          return;
+        }
+        
+        if (moved) {
+          newX = Math.max(0, Math.min(79, newX));
+          newY = Math.max(0, Math.min(59, newY));
+          
+          transform.setPosition(newX, newY);
+          transform.facing = newFacing;
+          
+          this.processTurn();
+          this.lastInput = Date.now();
+        }
+      }
+      
+      rest() {
+        const needs = this.player.needs;
+        needs.modifyNeed('sleep', 20);
+        needs.modifyNeed('hunger', -5);
+        needs.modifyNeed('thirst', -3);
+        needs.modifyNeed('hygiene', -2);
+        
+        this.addMessage('Levähdit hetken. Tunnet olosi virkistäneemmäksi.', 'normal');
+        this.processTurn();
+      }
+      
+      testDrug() {
+        // Simulate alcohol consumption
+        const stats = this.player.stats;
+        const needs = this.player.needs;
+        
+        stats.modifyStat('charisma', 2);
+        stats.modifyStat('perception', -2);
+        stats.modifyStat('reflex', -1);
+        needs.modifyNeed('thirst', -10);
+        needs.modifyNeed('pain', -2);
+        
+        this.addMessage('Joit alkoholia. Karisma +2, Havaitseminen -2, Refleksit -1.', 'drug');
+        this.processTurn();
+      }
+      
+      processTurn() {
+        const needs = this.player.needs;
+        const timeSinceLastTick = Date.now() - needs.lastTick;
+        const turnsElapsed = Math.floor(timeSinceLastTick / 1000);
+        
+        if (turnsElapsed > 0) {
+          needs.modifyNeed('hunger', -turnsElapsed * 0.5);
+          needs.modifyNeed('thirst', -turnsElapsed * 0.7);
+          needs.modifyNeed('sleep', -turnsElapsed * 0.3);
+          needs.modifyNeed('warmth', -turnsElapsed * 0.2);
+          needs.modifyNeed('social', -turnsElapsed * 0.1);
+          needs.modifyNeed('hygiene', -turnsElapsed * 0.3);
+          
+          if (needs.needs.pain > 0) {
+            needs.modifyNeed('pain', -turnsElapsed * 0.5);
+          }
+          
+          needs.lastTick = Date.now();
+          this.checkCriticalNeeds();
+        }
+        
+        this.updateUI();
+      }
+      
+      checkCriticalNeeds() {
+        const needs = this.player.needs;
+        
+        if (needs.getNeed('hunger') < 10) {
+          this.addMessage('Olet nälkäinen! Tarvitset ruokaa pian.', 'system');
+        }
+        if (needs.getNeed('thirst') < 10) {
+          this.addMessage('Olet janoinen! Tarvitset juotavaa pian.', 'system');
+        }
+        if (needs.getNeed('sleep') < 10) {
+          this.addMessage('Olet väsynyt. Tarvitset lepoa.', 'system');
+        }
+      }
+      
+      addMessage(text, type = 'normal') {
+        this.messages.push({ text, type, timestamp: Date.now() });
+        
+        if (this.messages.length > this.maxMessages) {
+          this.messages.splice(0, this.messages.length - this.maxMessages);
+        }
+        
+        this.updateMessageLog();
+      }
+      
+      updateMessageLog() {
+        const log = document.getElementById('messageLog');
+        log.innerHTML = '';
+        
+        for (const message of this.messages) {
+          const div = document.createElement('div');
+          div.className = `message ${message.type}`;
+          div.textContent = message.text;
+          log.appendChild(div);
+        }
+        
+        log.scrollTop = log.scrollHeight;
+      }
+      
+      updateUI() {
+        this.updateStats();
+        this.updateNeeds();
+        this.updateStatus();
+      }
+      
+      updateStats() {
+        const panel = document.getElementById('statsPanel');
+        panel.innerHTML = '';
+        
+        const translations = {
+          strength: 'Voima', endurance: 'Kestävyys', agility: 'Ketteryys',
+          intelligence: 'Älykkyys', perception: 'Havaitseminen', charisma: 'Karisma',
+          willpower: 'Tahdonvoima', luck: 'Onni', reflex: 'Refleksit',
+          tolerance: 'Sietokyky', stress: 'Stressinsietokyky', technical: 'Tekninen taito',
+          crime: 'Rikoskokemus', medical: 'Lääketieto', cunning: 'Ovela'
+        };
+        
+        for (const [key, value] of Object.entries(this.player.stats.stats)) {
+          const div = document.createElement('div');
+          div.className = 'stat-row';
+          div.innerHTML = `<span>${translations[key]}:</span><span>${Math.floor(value)}</span>`;
+          panel.appendChild(div);
+        }
+      }
+      
+      updateNeeds() {
+        const panel = document.getElementById('needsPanel');
+        panel.innerHTML = '';
+        
+        const translations = {
+          hunger: 'Nälkä', thirst: 'Jano', sleep: 'Uni', warmth: 'Lämpö',
+          social: 'Sosiaalisuus', pain: 'Kipu', hygiene: 'Hygienia'
+        };
+        
+        for (const [key, value] of Object.entries(this.player.needs.needs)) {
+          const div = document.createElement('div');
+          div.innerHTML = `<div style="margin-bottom: 4px;">${translations[key]}</div>`;
+          
+          const barContainer = document.createElement('div');
+          barContainer.className = 'need-bar';
+          
+          const barFill = document.createElement('div');
+          barFill.className = 'need-fill';
+          const percentage = Math.max(0, Math.min(100, value));
+          barFill.style.width = `${percentage}%`;
+          
+          if (percentage < 10) {
+            barFill.classList.add('critical');
+          } else if (percentage < 25) {
+            barFill.classList.add('low');
+          }
+          
+          barContainer.appendChild(barFill);
+          div.appendChild(barContainer);
+          panel.appendChild(div);
+        }
+      }
+      
+      updateStatus() {
+        document.getElementById('cash').textContent = `${this.player.cash}€`;
+        document.getElementById('bank').textContent = `${this.player.bank}€`;
+        document.getElementById('heat').textContent = `${this.player.heat}`;
+      }
+      
+      render() {
+        // Clear canvas
+        this.ctx.fillStyle = '#001122';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Simple grid
+        this.ctx.strokeStyle = '#224433';
+        this.ctx.lineWidth = 1;
+        
+        const tileSize = 8;
+        
+        for (let x = 0; x < 80; x++) {
+          this.ctx.beginPath();
+          this.ctx.moveTo(x * tileSize, 0);
+          this.ctx.lineTo(x * tileSize, this.canvas.height);
+          this.ctx.stroke();
+        }
+        
+        for (let y = 0; y < 60; y++) {
+          this.ctx.beginPath();
+          this.ctx.moveTo(0, y * tileSize);
+          this.ctx.lineTo(this.canvas.width, y * tileSize);
+          this.ctx.stroke();
+        }
+        
+        // Render player
+        const transform = this.player.transform;
+        this.ctx.fillStyle = '#ffff00';
+        this.ctx.fillRect(
+          transform.x * tileSize + 1,
+          transform.y * tileSize + 1,
+          tileSize - 2,
+          tileSize - 2
+        );
+        
+        // Player facing indicator
+        this.ctx.fillStyle = '#ffffff';
+        const centerX = transform.x * tileSize + tileSize / 2;
+        const centerY = transform.y * tileSize + tileSize / 2;
+        
+        switch (transform.facing) {
+          case 'north':
+            this.ctx.fillRect(centerX - 1, centerY - 2, 2, 1);
+            break;
+          case 'south':
+            this.ctx.fillRect(centerX - 1, centerY + 1, 2, 1);
+            break;
+          case 'west':
+            this.ctx.fillRect(centerX - 2, centerY - 1, 1, 2);
+            break;
+          case 'east':
+            this.ctx.fillRect(centerX + 1, centerY - 1, 1, 2);
+            break;
+        }
+      }
+      
+      gameLoop = (currentTime) => {
+        const deltaTime = currentTime - this.lastTime;
+        this.lastTime = currentTime;
+        
+        this.handleInput();
+        this.render();
+        
+        if (this.isRunning) {
+          requestAnimationFrame(this.gameLoop);
+        }
+      };
+      
+      start() {
+        if (this.isRunning) return;
+        
+        this.isRunning = true;
+        this.lastTime = performance.now();
+        requestAnimationFrame(this.gameLoop);
+      }
+      
+      stop() {
+        this.isRunning = false;
+      }
+    }
+    
+    // Start the game
+    const game = new SimpleGame();
+    game.start();
+    
+    // Expose for debugging
+    window.game = game;
+  </script>
+</body>
+</html>

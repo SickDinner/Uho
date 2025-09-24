@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UHO: Free Movement Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #1a1a2e;
+            color: white;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            height: 100vh;
+        }
+        
+        #gameCanvas {
+            border: 2px solid #444;
+            background: #000;
+        }
+        
+        #ui {
+            width: 300px;
+            padding: 20px;
+            background: #2a2a4e;
+            overflow-y: auto;
+        }
+        
+        #messageLog {
+            height: 200px;
+            border: 1px solid #666;
+            background: #333;
+            padding: 10px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        
+        .message {
+            margin-bottom: 5px;
+        }
+        
+        .message.system {
+            color: #00ff88;
+            font-weight: bold;
+        }
+        
+        .message.normal {
+            color: #ffffff;
+        }
+        
+        .message.drug {
+            color: #ff4444;
+        }
+        
+        .stats-section, .needs-section {
+            margin-bottom: 20px;
+        }
+        
+        .stats-section h3, .needs-section h3 {
+            margin-bottom: 10px;
+            color: #00ff88;
+            border-bottom: 1px solid #666;
+            padding-bottom: 5px;
+        }
+        
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px;
+            font-size: 12px;
+        }
+        
+        .need-bar {
+            width: 100%;
+            height: 8px;
+            background: #444;
+            border: 1px solid #666;
+            margin-top: 2px;
+        }
+        
+        .need-fill {
+            height: 100%;
+            background: #00ff88;
+            transition: width 0.3s ease;
+        }
+        
+        .need-fill.low {
+            background: #ffaa00;
+        }
+        
+        .need-fill.critical {
+            background: #ff4444;
+        }
+        
+        .status {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            padding: 15px;
+            background: #1a1a1a;
+            border: 1px solid #666;
+            border-radius: 5px;
+            font-size: 11px;
+            line-height: 1.6;
+        }
+        
+        .instructions h4 {
+            color: #00ff88;
+            margin-bottom: 10px;
+        }
+        
+        .key {
+            background: #444;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin: 0 2px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <div id="ui">
+        <div class="status">
+            <span>Kassa: <span id="cash">300€</span></span>
+            <span>Pankki: <span id="bank">600€</span></span>
+        </div>
+        
+        <div class="status">
+            <span>Kuumuus: <span id="heat">0</span></span>
+        </div>
+        
+        <div id="messageLog"></div>
+        
+        <div class="stats-section">
+            <h3>Tilastot</h3>
+            <div id="statsPanel"></div>
+        </div>
+        
+        <div class="needs-section">
+            <h3>Tarpeet</h3>
+            <div id="needsPanel"></div>
+        </div>
+        
+        <div class="instructions">
+            <h4>🆓 Free Movement Test</h4>
+            <p>Press <span class="key">F1</span> to activate the new free movement system!</p>
+            
+            <h4>Controls (when active):</h4>
+            <p>
+                <span class="key">WASD</span> / <span class="key">Arrows</span> - 360° movement<br>
+                <span class="key">Shift</span> - Sprint<br>
+                <span class="key">T</span> - Toggle tile/free movement<br>
+                <span class="key">Space</span> - Camera shake<br>
+                <span class="key">+</span> / <span class="key">-</span> - Zoom in/out<br>
+                <span class="key">R</span> - Reset position<br>
+                <span class="key">F1</span> - Return to original
+            </p>
+            
+            <h4>Features:</h4>
+            <p>
+                ✅ 360° continuous movement<br>
+                ✅ Smooth camera following<br>
+                ✅ Pixel-perfect collisions<br>
+                ✅ Physics-based interactions<br>
+                ✅ Sprite scaling (skaalain)<br>
+                ✅ Debug visualization<br>
+            </p>
+        </div>
+    </div>
+    
+    <script type="module" src="src/test-free-movement.ts"></script>
+</body>
+</html>

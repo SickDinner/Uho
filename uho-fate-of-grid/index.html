@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UHO: Fate of the Grid</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #1a1a1a;
+      font-family: 'Courier New', monospace;
+      color: #ffffff;
+      overflow: hidden;
+    }
+    
+    #gameContainer {
+      display: flex;
+      width: 100vw;
+      height: 100vh;
+    }
+    
+    #gameCanvas {
+      flex: 1;
+      background: #000;
+      image-rendering: pixelated;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: crisp-edges;
+    }
+    
+    #ui {
+      width: 300px;
+      background: #2a2a2a;
+      padding: 10px;
+      box-sizing: border-box;
+      overflow-y: auto;
+    }
+    
+    .ui-panel {
+      margin-bottom: 20px;
+      border: 1px solid #444;
+      padding: 10px;
+      background: #333;
+    }
+    
+    .ui-title {
+      color: #ffff00;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+      font-size: 12px;
+    }
+    
+    .need-bar {
+      width: 100%;
+      height: 8px;
+      background: #666;
+      margin: 2px 0;
+      border: 1px solid #888;
+    }
+    
+    .need-fill {
+      height: 100%;
+      background: #00ff00;
+      transition: width 0.3s, background-color 0.3s;
+    }
+    
+    .need-fill.low {
+      background: #ffff00;
+    }
+    
+    .need-fill.critical {
+      background: #ff0000;
+    }
+    
+    #messageLog {
+      height: 200px;
+      overflow-y: auto;
+      background: #1a1a1a;
+      border: 1px solid #444;
+      padding: 8px;
+      font-size: 11px;
+      line-height: 1.3;
+    }
+    
+    .message {
+      margin-bottom: 4px;
+      color: #ccc;
+    }
+    
+    .message.system {
+      color: #ffff00;
+    }
+    
+    .message.combat {
+      color: #ff6666;
+    }
+    
+    .message.drug {
+      color: #ff66ff;
+    }
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div id="ui">
+      <div class="ui-panel">
+        <div class="ui-title">Tilastot</div>
+        <div id="statsPanel"></div>
+      </div>
+      
+      <div class="ui-panel">
+        <div class="ui-title">Tarpeet</div>
+        <div id="needsPanel"></div>
+      </div>
+      
+      <div class="ui-panel">
+        <div class="ui-title">Tila</div>
+        <div id="statusPanel">
+          <div class="stat-row">
+            <span>Käteinen:</span>
+            <span id="cash">0€</span>
+          </div>
+          <div class="stat-row">
+            <span>Pankki:</span>
+            <span id="bank">0€</span>
+          </div>
+          <div class="stat-row">
+            <span>Kuumuus:</span>
+            <span id="heat">0</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="ui-panel">
+        <div class="ui-title">Viestit</div>
+        <div id="messageLog"></div>
+      </div>
+    </div>
+  </div>
+  
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
