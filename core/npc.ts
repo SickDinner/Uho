@@ -1,7 +1,7 @@
 import { World, Entity } from './ecs.ts';
 import { Transform, AI, Sprite, Wallet, LawEnforcement, Inventory } from './components.ts';
 import { MapManager } from './map.ts';
-import type { Vector2 } from './types.ts';
+import type { Vector2, Direction } from './types.ts';
 import { DRUGS, getDrug } from '@data/drugs.ts';
 
 export interface NPCDef {
@@ -85,16 +85,32 @@ export class NPCManager {
     this.world = world;
     this.mapManager = mapManager;
   }
-  
+
+  private getInitialFacing(def: NPCDef): Direction {
+    if (def.type === 'police' || def.type === 'patrol') {
+      return 'south';
+    }
+
+    if (def.type === 'dealer') {
+      return 'east';
+    }
+
+    const directions: Direction[] = ['north', 'south', 'east', 'west'];
+    return directions[Math.floor(Math.random() * directions.length)];
+  }
+
   spawnNPC(defId: string, x: number, y: number): Entity | null {
     const def = NPC_DEFS[defId];
     if (!def) return null;
-    
+
     const entity = this.world.createEntity();
     
     // Add base components
-    this.world.componentManager.addComponent(new Transform(entity.id, x, y));
-    this.world.componentManager.addComponent(new Sprite(entity.id, def.sprite.toString()));
+    const facing = this.getInitialFacing(def);
+    this.world.componentManager.addComponent(new Transform(entity.id, x, y, facing));
+    const sprite = new Sprite(entity.id, def.sprite.toString());
+    sprite.setAnimation(`idle_${facing}`);
+    this.world.componentManager.addComponent(sprite);
     this.world.componentManager.addComponent(new AI(entity.id, def.type, 'idle'));
     
     // Add type-specific components

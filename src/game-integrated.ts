@@ -11,13 +11,13 @@ import {
   ensureAudioInitialized,
   updateListenerPosition,
 } from '@/audio/audio-integration-example.ts';
+import { ensureGeneratedSpriteSheets } from '@/sprites/generated-sheets.ts';
 import { assetManager } from '@core/asset-manager.ts';
 
 // Import existing game scene
 import { World } from '@core/ecs.ts';
 import { Transform, Sprite, Stats, Needs, Inventory, Wallet, Skills, Addiction, LawEnforcement } from '@core/components.ts';
 import { MapManager, TILE_TYPES } from '@core/map.ts';
-import { spriteManager } from '@core/sprites.ts';
 import { particleSystem } from '@core/particles.ts';
 import { NPCManager } from '@core/npc.ts';
 import { Camera } from '@core/camera.ts';
@@ -191,7 +191,9 @@ class GameplayScene extends Scene {
     
     // Add components
     this.world.componentManager.addComponent(new Transform(player.id, 10, 10));
-    this.world.componentManager.addComponent(new Sprite(player.id, 'player')); // Player sprite
+    const sprite = new Sprite(player.id, 'player');
+    sprite.setAnimation('idle_south');
+    this.world.componentManager.addComponent(sprite); // Player sprite
     
     // Use character data if available, otherwise use defaults
     const statsData = characterData ? characterData.stats : {
@@ -457,23 +459,9 @@ class GameplayScene extends Scene {
   
   private async loadSprites(): Promise<void> {
     try {
-      await spriteManager.loadSpriteSheet(
-        'player',
-        'assets/sprites/player.png',
-        16, 16,
-        {
-          idle_south: { name: 'idle_south', frames: [0], duration: 1000, loop: true },
-          idle_north: { name: 'idle_north', frames: [12], duration: 1000, loop: true },
-          idle_west: { name: 'idle_west', frames: [4], duration: 1000, loop: true },
-          idle_east: { name: 'idle_east', frames: [8], duration: 1000, loop: true },
-          walk_south: { name: 'walk_south', frames: [0, 1, 2, 3], duration: 200, loop: true },
-          walk_north: { name: 'walk_north', frames: [12, 13, 14, 15], duration: 200, loop: true },
-          walk_west: { name: 'walk_west', frames: [4, 5, 6, 7], duration: 200, loop: true },
-          walk_east: { name: 'walk_east', frames: [8, 9, 10, 11], duration: 200, loop: true }
-        }
-      );
+      await ensureGeneratedSpriteSheets();
     } catch (error) {
-      console.warn('Could not load sprites, using fallback rendering:', error);
+      console.warn('Could not generate sprites, using fallback rendering:', error);
     }
   }
   

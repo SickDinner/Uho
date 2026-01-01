@@ -3,7 +3,7 @@
 
 import { World } from '@core/ecs.ts';
 import { Transform, Sprite, Stats, Needs, Inventory, Wallet, Skills, Addiction, LawEnforcement } from '@core/components.ts';
-import { spriteManager } from '@core/sprites.ts';
+import { ensureGeneratedSpriteSheets } from '@/sprites/generated-sheets.ts';
 import { skaalainSystem } from '@core/skaalain.ts';
 import type { MessageType, Vector2 } from '@core/types.ts';
 
@@ -65,12 +65,17 @@ export class FreeMovementDemo {
     const player = this.world.createEntity();
     this.playerId = player.id;
     
+    // Ensure the generated sprite atlas is available
+    void ensureGeneratedSpriteSheets();
+
     // Add ECS components
-    this.world.componentManager.addComponent(new Transform(player.id, 
-      Math.floor(startX / this.config.pixelScale), 
+    this.world.componentManager.addComponent(new Transform(player.id,
+      Math.floor(startX / this.config.pixelScale),
       Math.floor(startY / this.config.pixelScale)
     ));
-    this.world.componentManager.addComponent(new Sprite(player.id, 'player'));
+    const sprite = new Sprite(player.id, 'player');
+    sprite.setAnimation('idle_south');
+    this.world.componentManager.addComponent(sprite);
     this.world.componentManager.addComponent(new Stats(player.id, {
       strength: 50, endurance: 55, agility: 60, intelligence: 60,
       perception: 55, charisma: 45, willpower: 55, luck: 50,
