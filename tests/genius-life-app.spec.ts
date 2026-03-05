@@ -82,6 +82,14 @@ describe('genius-life-app helpers', () => {
     expect(plan.steps).toBe(0);
     expect(plan.remainingAccumulator).toBeCloseTo(accumulator, 10);
   });
+  it('planSimulationSteps treats infinite accumulator as zero', () => {
+    const tickSeconds = 1 / 60;
+    const plan = planSimulationSteps(Number.POSITIVE_INFINITY, tickSeconds, 8);
+
+    expect(plan.steps).toBe(0);
+    expect(plan.remainingAccumulator).toBe(0);
+  });
+
 
   it('planSimulationSteps normalizes invalid accumulator inputs', () => {
     const tickSeconds = 1 / 60;
