@@ -24,6 +24,14 @@ export function computeMood(needs: NeedsState, profession: Profession): number {
   return clamp(base + professionBonus, 0, 100);
 }
 
+export function createSeededRandom(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s = (1664525 * s + 1013904223) >>> 0;
+    return s / 0x100000000;
+  };
+}
+
 interface Citizen {
   id: number;
   name: string;
@@ -83,6 +91,8 @@ export class GeniusLifeApp {
   private running = false;
   private backgroundDrift = 0;
   private readonly uiUpdateStride = 4;
+  private random = Math.random;
+  private activeSeed: number | null = null;
 
   private state: GlobalState = {
     season: 'kevät',
@@ -119,6 +129,8 @@ export class GeniusLifeApp {
     this.needsPanel = needsPanel;
     this.statusPanel = statusPanel;
     this.controlsPanel = controlsPanel;
+
+    this.bootstrapRandomSource();
 
     this.seedWorld();
     this.setupControls();
@@ -176,6 +188,7 @@ export class GeniusLifeApp {
       <button id="ideaBtn">🧠 Ideapurkaus</button>
       <button id="overlayBtn">📊 Overlay: ON</button>
       <button id="fxBtn">✨ Efektit: ON</button>
+      <button id="seedBtn">🎲 Satunnainen seed</button>
       <label class="control-label">Simulaation intensiteetti
         <input id="intensityInput" type="range" min="0.5" max="2" step="0.1" value="1" />
       </label>
@@ -189,6 +202,7 @@ export class GeniusLifeApp {
     const boostBtn = document.getElementById('boostBtn') as HTMLButtonElement;
     const ideaBtn = document.getElementById('ideaBtn') as HTMLButtonElement;
     const fxBtn = document.getElementById('fxBtn') as HTMLButtonElement;
+    const seedBtn = document.getElementById('seedBtn') as HTMLButtonElement;
     const intensityInput = document.getElementById('intensityInput') as HTMLInputElement;
     const resetBtn = document.getElementById('resetBtn') as HTMLButtonElement;
 
@@ -215,6 +229,12 @@ export class GeniusLifeApp {
     fxBtn.addEventListener('click', () => {
       this.state.visualFx = !this.state.visualFx;
       fxBtn.textContent = `✨ Efektit: ${this.state.visualFx ? 'ON' : 'OFF'}`;
+    });
+    seedBtn.addEventListener('click', () => {
+      this.activeSeed = Math.floor(Math.random() * 0xffffffff);
+      this.random = createSeededRandom(this.activeSeed);
+      this.resetWorld();
+      this.log(`🎲 Uusi seed käytössä: ${this.activeSeed}`, 'system');
     });
     intensityInput.addEventListener('input', () => {
       this.state.simIntensity = Number(intensityInput.value);
@@ -303,29 +323,29 @@ export class GeniusLifeApp {
 
   private seedWorld(): void {
     for (let i = 0; i < 14; i++) {
-      this.citizens.push(this.createCitizen(Math.random() * this.canvas.width, Math.random() * this.canvas.height));
+      this.citizens.push(this.createCitizen(this.random() * this.canvas.width, this.random() * this.canvas.height));
     }
   }
 
   private createCitizen(x: number, y: number): Citizen {
-    const profession = PROFESSIONS[Math.floor(Math.random() * PROFESSIONS.length)];
+    const profession = PROFESSIONS[Math.floor(this.random() * PROFESSIONS.length)];
     return {
       id: this.nextId++,
-      name: `${NAMES[Math.floor(Math.random() * NAMES.length)]}-${Math.floor(Math.random() * 90 + 10)}`,
+      name: `${NAMES[Math.floor(this.random() * NAMES.length)]}-${Math.floor(this.random() * 90 + 10)}`,
       profession,
-      age: Math.floor(Math.random() * 30) + 18,
+      age: Math.floor(this.random() * 30) + 18,
       x,
       y,
-      vx: (Math.random() - 0.5) * 0.8,
-      vy: (Math.random() - 0.5) * 0.8,
+      vx: (this.random() - 0.5) * 0.8,
+      vy: (this.random() - 0.5) * 0.8,
       mood: 70,
       needs: {
-        energy: 65 + Math.random() * 30,
-        social: 45 + Math.random() * 45,
-        curiosity: 45 + Math.random() * 45,
-        health: 60 + Math.random() * 35
+        energy: 65 + this.random() * 30,
+        social: 45 + this.random() * 45,
+        curiosity: 45 + this.random() * 45,
+        health: 60 + this.random() * 35
       },
-      creativity: 40 + Math.random() * 60,
+      creativity: 40 + this.random() * 60,
       connections: [],
       alive: true
     };
@@ -425,7 +445,7 @@ export class GeniusLifeApp {
     this.citizens = this.citizens.filter((citizen) => citizen.alive);
 
     if (this.citizens.length < 6) {
-      const newcomer = this.createCitizen(Math.random() * this.canvas.width, Math.random() * this.canvas.height);
+      const newcomer = this.createCitizen(this.random() * this.canvas.width, this.random() * this.canvas.height);
       this.citizens.push(newcomer);
       this.log(`✨ ${newcomer.name} muutti NeoKylään vahvistamaan tulevaisuutta!`, 'system');
     }
@@ -450,14 +470,14 @@ export class GeniusLifeApp {
           a.needs.health += dt * 2;
           b.needs.health += dt * 2;
 
-          if (!a.connections.includes(b.id) && Math.random() < 0.007) {
+          if (!a.connections.includes(b.id) && this.random() < 0.007) {
             a.connections.push(b.id);
             b.connections.push(a.id);
             this.state.innovationPoints += 4;
             this.log(`🤝 ${a.name} ja ${b.name} loivat uuden idealiiton.`);
           }
 
-          if (Math.random() < 0.0035) {
+          if (this.random() < 0.0035) {
             a.creativity += 1.5;
             b.creativity += 1.5;
             this.state.innovationPoints += 1;
@@ -473,8 +493,8 @@ export class GeniusLifeApp {
     const thriving = this.citizens.filter((c) => c.mood > 68 && c.needs.health > 58);
     if (thriving.length >= 3) {
       const child = this.createCitizen(
-        this.canvas.width * (0.25 + Math.random() * 0.5),
-        this.canvas.height * (0.25 + Math.random() * 0.5)
+        this.canvas.width * (0.25 + this.random() * 0.5),
+        this.canvas.height * (0.25 + this.random() * 0.5)
       );
       child.age = 1;
       child.creativity = 82;
@@ -629,6 +649,20 @@ export class GeniusLifeApp {
   private average(selector: (citizen: Citizen) => number): number {
     if (this.citizens.length === 0) return 0;
     return this.citizens.reduce((sum, citizen) => sum + selector(citizen), 0) / this.citizens.length;
+  }
+
+  private bootstrapRandomSource(): void {
+    const params = new URLSearchParams(window.location.search);
+    const seed = params.get('seed');
+
+    if (!seed) return;
+
+    const parsed = Number(seed);
+    if (!Number.isFinite(parsed)) return;
+
+    this.activeSeed = parsed >>> 0;
+    this.random = createSeededRandom(this.activeSeed);
+    this.log(`🧬 Deterministinen seed käytössä: ${this.activeSeed}`, 'system');
   }
 
   private log(message: string, type: 'system' | 'combat' | 'drug' = 'system'): void {

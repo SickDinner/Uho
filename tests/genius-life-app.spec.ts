@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clamp, computeMood, squaredDistance, type NeedsState } from '../src/genius-life-app.ts';
+import { clamp, computeMood, createSeededRandom, squaredDistance, type NeedsState } from '../src/genius-life-app.ts';
 
 describe('genius-life-app helpers', () => {
   it('clamp keeps values in bounds', () => {
@@ -19,5 +19,15 @@ describe('genius-life-app helpers', () => {
 
     const peakNeeds: NeedsState = { energy: 100, social: 100, curiosity: 100, health: 100 };
     expect(computeMood(peakNeeds, 'Taiteilija')).toBe(100);
+  });
+
+  it('createSeededRandom produces deterministic sequence', () => {
+    const a = createSeededRandom(12345);
+    const b = createSeededRandom(12345);
+
+    const seqA = [a(), a(), a()];
+    const seqB = [b(), b(), b()];
+
+    expect(seqA).toEqual(seqB);
   });
 });
