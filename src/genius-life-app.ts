@@ -1,6 +1,29 @@
 type NeedName = 'energy' | 'social' | 'curiosity' | 'health';
 type Profession = 'Keksijä' | 'Taiteilija' | 'Opettaja' | 'Rakentaja';
 
+export interface NeedsState {
+  energy: number;
+  social: number;
+  curiosity: number;
+  health: number;
+}
+
+export function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+export function squaredDistance(ax: number, ay: number, bx: number, by: number): number {
+  const dx = ax - bx;
+  const dy = ay - by;
+  return dx * dx + dy * dy;
+}
+
+export function computeMood(needs: NeedsState, profession: Profession): number {
+  const base = (needs.energy + needs.social + needs.curiosity + needs.health) / 4;
+  const professionBonus = profession === 'Taiteilija' ? 2 : profession === 'Opettaja' ? 1.5 : 1;
+  return clamp(base + professionBonus, 0, 100);
+}
+
 interface Citizen {
   id: number;
   name: string;
@@ -11,7 +34,7 @@ interface Citizen {
   vx: number;
   vy: number;
   mood: number;
-  needs: Record<NeedName, number>;
+  needs: NeedsState;
   creativity: number;
   connections: number[];
   alive: boolean;
@@ -352,7 +375,7 @@ export class GeniusLifeApp {
         citizen.needs.health += dt * 2.2;
       }
 
-      citizen.mood = this.calculateMood(citizen);
+      citizen.mood = computeMood(citizen.needs, citizen.profession);
 
       if (citizen.needs.energy < 25) {
         citizen.vx *= 0.985;
@@ -386,10 +409,10 @@ export class GeniusLifeApp {
       citizen.y = Math.max(12, Math.min(this.canvas.height - 12, citizen.y));
 
       for (const need of Object.keys(citizen.needs) as NeedName[]) {
-        citizen.needs[need] = Math.max(0, Math.min(100, citizen.needs[need]));
+        citizen.needs[need] = clamp(citizen.needs[need], 0, 100);
       }
 
-      citizen.creativity = Math.max(0, Math.min(100, citizen.creativity));
+      citizen.creativity = clamp(citizen.creativity, 0, 100);
 
       if (citizen.age > 95 || citizen.needs.health <= 0) {
         citizen.alive = false;
@@ -407,17 +430,11 @@ export class GeniusLifeApp {
       this.log(`✨ ${newcomer.name} muutti NeoKylään vahvistamaan tulevaisuutta!`, 'system');
     }
 
-    this.state.innovationPoints = Math.min(9999, Math.max(0, this.state.innovationPoints));
+    this.state.innovationPoints = clamp(this.state.innovationPoints, 0, 9999);
 
     if (this.tick % this.uiUpdateStride === 0) {
       this.updatePanels();
     }
-  }
-
-  private calculateMood(citizen: Citizen): number {
-    const base = (citizen.needs.energy + citizen.needs.social + citizen.needs.curiosity + citizen.needs.health) / 4;
-    const professionBonus = citizen.profession === 'Taiteilija' ? 2 : citizen.profession === 'Opettaja' ? 1.5 : 1;
-    return Math.min(100, base + professionBonus);
   }
 
   private handleInteractions(dt: number): void {
@@ -425,9 +442,7 @@ export class GeniusLifeApp {
       for (let j = i + 1; j < this.citizens.length; j++) {
         const a = this.citizens[i];
         const b = this.citizens[j];
-        const dx = a.x - b.x;
-        const dy = a.y - b.y;
-        const d2 = dx * dx + dy * dy;
+        const d2 = squaredDistance(a.x, a.y, b.x, b.y);
 
         if (d2 < 24 * 24) {
           a.needs.social += dt * 11.5;
@@ -476,9 +491,7 @@ export class GeniusLifeApp {
 
     for (const other of this.citizens) {
       if (other.id === citizen.id || !other.alive) continue;
-      const dx = citizen.x - other.x;
-      const dy = citizen.y - other.y;
-      const d2 = dx * dx + dy * dy;
+      const d2 = squaredDistance(citizen.x, citizen.y, other.x, other.y);
       if (d2 < dist) {
         dist = d2;
         closest = other;
