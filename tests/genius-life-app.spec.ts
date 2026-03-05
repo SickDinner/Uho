@@ -73,6 +73,23 @@ describe('genius-life-app helpers', () => {
     expect(plan.remainingAccumulator).toBeCloseTo(accumulator, 10);
   });
 
+  it('planSimulationSteps floors non-integer maxSteps to avoid extra ticks', () => {
+    const tickSeconds = 1 / 60;
+    const accumulator = tickSeconds * 5;
+
+    const plan = planSimulationSteps(accumulator, tickSeconds, 0.5);
+
+    expect(plan.steps).toBe(0);
+    expect(plan.remainingAccumulator).toBeCloseTo(accumulator, 10);
+  });
+
+  it('planSimulationSteps normalizes invalid accumulator inputs', () => {
+    const tickSeconds = 1 / 60;
+
+    expect(planSimulationSteps(-1, tickSeconds, 8)).toEqual({ steps: 0, remainingAccumulator: 0 });
+    expect(planSimulationSteps(Number.NaN, tickSeconds, 8)).toEqual({ steps: 0, remainingAccumulator: 0 });
+  });
+
 
   it('seasonPaceModifier maps seasons to expected pace values', () => {
     expect(seasonPaceModifier('kevät')).toBe(1);

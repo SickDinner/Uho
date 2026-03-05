@@ -97,19 +97,22 @@ export function planSimulationSteps(
   tickSeconds: number,
   maxSteps: number
 ): SimulationStepPlan {
-  if (tickSeconds <= 0 || maxSteps <= 0) {
-    return { steps: 0, remainingAccumulator: accumulator };
+  const normalizedAccumulator = Number.isFinite(accumulator) ? Math.max(0, accumulator) : 0;
+  const normalizedTickSeconds = Number.isFinite(tickSeconds) ? tickSeconds : 0;
+  const normalizedMaxSteps = Number.isFinite(maxSteps) ? Math.floor(maxSteps) : 0;
+
+  if (normalizedTickSeconds <= 0 || normalizedMaxSteps <= 0) {
+    return { steps: 0, remainingAccumulator: normalizedAccumulator };
   }
 
-  let steps = 0;
-  let remainingAccumulator = accumulator;
+  const possibleSteps = Math.floor(normalizedAccumulator / normalizedTickSeconds);
+  const steps = Math.min(possibleSteps, normalizedMaxSteps);
+  const remainingAccumulator = normalizedAccumulator - steps * normalizedTickSeconds;
 
-  while (remainingAccumulator >= tickSeconds && steps < maxSteps) {
-    remainingAccumulator -= tickSeconds;
-    steps += 1;
-  }
-
-  return { steps, remainingAccumulator };
+  return {
+    steps,
+    remainingAccumulator: remainingAccumulator < 1e-9 ? 0 : remainingAccumulator
+  };
 }
 
 export class GeniusLifeApp {
