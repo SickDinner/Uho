@@ -6,6 +6,7 @@ import {
   inferModeForIntensity,
   seasonPaceModifier,
   squaredDistance,
+  planSimulationSteps,
   type NeedsState
 } from '../src/genius-life-app.ts';
 
@@ -41,6 +42,25 @@ describe('genius-life-app helpers', () => {
       expect(value).toBeGreaterThanOrEqual(0);
       expect(value).toBeLessThan(1);
     });
+  });
+
+  it('planSimulationSteps preserves overflow time when max steps are hit', () => {
+    const tickSeconds = 1 / 60;
+    const maxSteps = 8;
+    const accumulator = tickSeconds * 10.5;
+
+    const plan = planSimulationSteps(accumulator, tickSeconds, maxSteps);
+
+    expect(plan.steps).toBe(8);
+    expect(plan.remainingAccumulator).toBeCloseTo(tickSeconds * 2.5, 10);
+  });
+
+  it('planSimulationSteps consumes all available steps below the cap', () => {
+    const tickSeconds = 1 / 60;
+    const plan = planSimulationSteps(tickSeconds * 3.25, tickSeconds, 8);
+
+    expect(plan.steps).toBe(3);
+    expect(plan.remainingAccumulator).toBeCloseTo(tickSeconds * 0.25, 10);
   });
 
 

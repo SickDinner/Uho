@@ -87,6 +87,27 @@ const SEASONS: GlobalState['season'][] = ['kevät', 'kesä', 'syksy', 'talvi'];
 const SIM_TICK_SECONDS = 1 / 60;
 const MAX_SIM_STEPS_PER_FRAME = 8;
 
+export interface SimulationStepPlan {
+  steps: number;
+  remainingAccumulator: number;
+}
+
+export function planSimulationSteps(
+  accumulator: number,
+  tickSeconds: number,
+  maxSteps: number
+): SimulationStepPlan {
+  let steps = 0;
+  let remainingAccumulator = accumulator;
+
+  while (remainingAccumulator >= tickSeconds && steps < maxSteps) {
+    remainingAccumulator -= tickSeconds;
+    steps += 1;
+  }
+
+  return { steps, remainingAccumulator };
+}
+
 export class GeniusLifeApp {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
@@ -484,15 +505,19 @@ export class GeniusLifeApp {
 
     if (!this.state.paused) {
       this.simulationAccumulator += dt * this.state.speed;
-      let simulatedSteps = 0;
-      while (this.simulationAccumulator >= SIM_TICK_SECONDS && simulatedSteps < MAX_SIM_STEPS_PER_FRAME) {
+      const { steps, remainingAccumulator } = planSimulationSteps(
+        this.simulationAccumulator,
+        SIM_TICK_SECONDS,
+        MAX_SIM_STEPS_PER_FRAME
+      );
+
+      for (let i = 0; i < steps; i += 1) {
         this.update(SIM_TICK_SECONDS);
-        this.simulationAccumulator -= SIM_TICK_SECONDS;
-        simulatedSteps += 1;
       }
 
       // Preserve any unprocessed simulation time so long/slow frames catch up deterministically
       // across subsequent render frames instead of dropping elapsed simulation progress.
+      this.simulationAccumulator = remainingAccumulator;
     }
     this.render();
     this.raf = requestAnimationFrame(this.loop);
