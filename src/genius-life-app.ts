@@ -86,7 +86,7 @@ const PROFESSIONS: Profession[] = ['Keksijä', 'Taiteilija', 'Opettaja', 'Rakent
 const SEASONS: GlobalState['season'][] = ['kevät', 'kesä', 'syksy', 'talvi'];
 const SIM_TICK_SECONDS = 1 / 60;
 const MAX_SIM_STEPS_PER_FRAME = 8;
-const MAX_ACCUMULATED_SIM_SECONDS = SIM_TICK_SECONDS * 240;
+const MAX_ACCUMULATED_SIM_SECONDS = SIM_TICK_SECONDS * 100;
 const SIM_TIME_EPSILON = 1e-9;
 
 export class GeniusLifeApp {
