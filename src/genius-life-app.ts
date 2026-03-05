@@ -96,10 +96,12 @@ export function computeFixedStepAdvance(
   maxAccumulatedSeconds: number,
   epsilon: number
 ): FixedStepAdvanceResult {
-  const safeEpsilon = Math.max(epsilon, Number.EPSILON);
-  const safeTickSeconds = Math.max(tickSeconds, safeEpsilon);
-  const safeMaxStepsPerFrame = Math.max(0, Math.floor(maxStepsPerFrame));
-  const safeMaxAccumulatedSeconds = Math.max(0, maxAccumulatedSeconds);
+  const safeEpsilon = Number.isFinite(epsilon) ? Math.max(epsilon, Number.EPSILON) : Number.EPSILON;
+  const safeTickSeconds = Number.isFinite(tickSeconds) ? Math.max(tickSeconds, safeEpsilon) : safeEpsilon;
+  const safeMaxStepsPerFrame = Number.isFinite(maxStepsPerFrame)
+    ? Math.max(0, Math.floor(maxStepsPerFrame))
+    : 0;
+  const safeMaxAccumulatedSeconds = Number.isFinite(maxAccumulatedSeconds) ? Math.max(0, maxAccumulatedSeconds) : 0;
   const safeAccumulator = Number.isFinite(accumulator) ? clamp(accumulator, 0, safeMaxAccumulatedSeconds) : 0;
   const safeFrameDeltaSeconds = Number.isFinite(frameDeltaSeconds) ? Math.max(0, frameDeltaSeconds) : 0;
   const safeSpeed = Number.isFinite(speed) ? Math.max(0, speed) : 0;

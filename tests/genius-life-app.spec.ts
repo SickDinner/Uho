@@ -121,4 +121,19 @@ describe('genius-life-app helpers', () => {
     expect(result.accumulator).toBeCloseTo(tickSeconds * 2, 10);
   });
 
+  it('computeFixedStepAdvance handles non-finite epsilon and tickSeconds safely', () => {
+    const tickSeconds = 1 / 60;
+    const result = computeFixedStepAdvance(0, tickSeconds, 1, Number.NaN, 8, tickSeconds * 100, Number.NaN);
+
+    expect(result.stepsToSimulate).toBe(1);
+    expect(result.accumulator).toBe(0);
+  });
+
+  it('computeFixedStepAdvance handles non-finite max bounds as zero', () => {
+    const result = computeFixedStepAdvance(1, 1, 1, 1 / 60, 8, Number.NaN, 1e-9);
+
+    expect(result.stepsToSimulate).toBe(0);
+    expect(result.accumulator).toBe(0);
+  });
+
 });
