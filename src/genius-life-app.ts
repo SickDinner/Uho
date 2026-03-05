@@ -97,6 +97,10 @@ export function planSimulationSteps(
   tickSeconds: number,
   maxSteps: number
 ): SimulationStepPlan {
+  if (tickSeconds <= 0 || maxSteps <= 0) {
+    return { steps: 0, remainingAccumulator: accumulator };
+  }
+
   let steps = 0;
   let remainingAccumulator = accumulator;
 
