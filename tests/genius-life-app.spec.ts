@@ -113,6 +113,15 @@ describe('genius-life-app helpers', () => {
     });
   });
 
+  it('planSimulationSteps keeps remainingAccumulator bounded below tickSeconds when fully consumed', () => {
+    const tickSeconds = 1 / 60;
+    const plan = planSimulationSteps(tickSeconds * 7.9999999999, tickSeconds, 8);
+
+    expect(plan.steps).toBe(7);
+    expect(plan.remainingAccumulator).toBeGreaterThanOrEqual(0);
+    expect(plan.remainingAccumulator).toBeLessThan(tickSeconds);
+  });
+
 
   it('seasonPaceModifier maps seasons to expected pace values', () => {
     expect(seasonPaceModifier('kevät')).toBe(1);

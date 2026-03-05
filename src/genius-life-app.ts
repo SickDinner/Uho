@@ -106,14 +106,12 @@ export function planSimulationSteps(
     return { steps: 0, remainingAccumulator: safeAccumulator };
   }
 
-  const possibleSteps = Math.floor(safeAccumulator / safeTickSeconds);
+  const possibleSteps = Math.max(0, Math.floor(safeAccumulator / safeTickSeconds));
   const steps = Math.min(possibleSteps, safeMaxSteps);
-  const remainingAccumulator = safeAccumulator - steps * safeTickSeconds;
+  const rawRemainingAccumulator = safeAccumulator - steps * safeTickSeconds;
+  const remainingAccumulator = rawRemainingAccumulator <= SIM_ACCUMULATOR_EPSILON ? 0 : rawRemainingAccumulator;
 
-  return {
-    steps,
-    remainingAccumulator: remainingAccumulator < SIM_ACCUMULATOR_EPSILON ? 0 : remainingAccumulator
-  };
+  return { steps, remainingAccumulator };
 }
 
 export class GeniusLifeApp {
