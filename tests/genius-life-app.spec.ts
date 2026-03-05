@@ -160,6 +160,24 @@ describe('genius-life-app helpers', () => {
       remainingAccumulator: accumulator
     });
   });
+  it('planSimulationSteps avoids stepping when tickSeconds is negative', () => {
+    const accumulator = 1;
+    expect(planSimulationSteps(accumulator, -0.1, 8)).toEqual({
+      steps: 0,
+      remainingAccumulator: accumulator
+    });
+  });
+
+  it('planSimulationSteps avoids stepping when maxSteps is negative fractional', () => {
+    const tickSeconds = 1 / 60;
+    const accumulator = tickSeconds * 3;
+
+    const plan = planSimulationSteps(accumulator, tickSeconds, -0.5);
+
+    expect(plan.steps).toBe(0);
+    expect(plan.remainingAccumulator).toBeCloseTo(accumulator, 10);
+  });
+
 
   it('planSimulationSteps keeps remainingAccumulator bounded below tickSeconds when fully consumed', () => {
     const tickSeconds = 1 / 60;

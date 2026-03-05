@@ -94,9 +94,13 @@ interface SimulationStepPlan {
 }
 
 
+function normalizeNonNegativeFinite(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, value);
+}
+
 function normalizeAccumulator(accumulator: number): number {
-  if (!Number.isFinite(accumulator)) return 0;
-  return Math.max(0, accumulator);
+  return normalizeNonNegativeFinite(accumulator);
 }
 
 function normalizeTickSeconds(tickSeconds: number): number {
@@ -107,7 +111,7 @@ function normalizeTickSeconds(tickSeconds: number): number {
 function normalizeMaxSteps(maxSteps: number): number {
   if (maxSteps === Number.POSITIVE_INFINITY) return Number.POSITIVE_INFINITY;
   if (!Number.isFinite(maxSteps)) return 0;
-  return Math.max(0, Math.floor(maxSteps));
+  return Math.floor(normalizeNonNegativeFinite(maxSteps));
 }
 
 export function planSimulationSteps(
