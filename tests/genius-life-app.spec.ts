@@ -106,6 +106,15 @@ describe('genius-life-app helpers', () => {
     expect(plan.steps).toBe(3);
     expect(plan.remainingAccumulator).toBeCloseTo(tickSeconds * 0.5, 10);
   });
+  it('planSimulationSteps treats NaN maxSteps as zero', () => {
+    const tickSeconds = 1 / 60;
+    const accumulator = tickSeconds * 2;
+    const plan = planSimulationSteps(accumulator, tickSeconds, Number.NaN);
+
+    expect(plan.steps).toBe(0);
+    expect(plan.remainingAccumulator).toBeCloseTo(accumulator, 10);
+  });
+
 
   it('planSimulationSteps rejects negative infinite maxSteps', () => {
     const tickSeconds = 1 / 60;

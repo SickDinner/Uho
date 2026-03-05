@@ -95,7 +95,6 @@ interface SimulationStepPlan {
 
 
 function normalizeMaxSteps(maxSteps: number): number {
-  if (Number.isNaN(maxSteps)) return 0;
   if (maxSteps === Number.POSITIVE_INFINITY) return Number.POSITIVE_INFINITY;
   if (!Number.isFinite(maxSteps)) return 0;
   return Math.max(0, Math.floor(maxSteps));
