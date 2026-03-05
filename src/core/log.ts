@@ -33,8 +33,15 @@ export class GameLog {
   }
 
   private trim(): void {
-    if (this.entries.length > 200) {
-      this.entries.splice(0, this.entries.length - 200);
+    if (this.entries.length <= 200) {
+      return;
+    }
+
+    const removeCount = this.entries.length - 200;
+    this.entries.splice(0, removeCount);
+
+    for (let i = 0; i < removeCount; i += 1) {
+      this.container.firstElementChild?.remove();
     }
   }
 

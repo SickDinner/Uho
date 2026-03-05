@@ -36,20 +36,21 @@ export type CommandListener = (command: Command, event: KeyboardEvent) => void;
 
 export class InputHandler {
   private listeners: Set<CommandListener> = new Set();
+  private readonly keydownHandler = (event: KeyboardEvent): void => {
+    const command = keyBindings[event.key];
+    if (!command) {
+      return;
+    }
+
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) {
+      event.preventDefault();
+    }
+
+    this.listeners.forEach((listener) => listener(command, event));
+  };
 
   constructor() {
-    window.addEventListener('keydown', (event) => {
-      const command = keyBindings[event.key];
-      if (!command) {
-        return;
-      }
-
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) {
-        event.preventDefault();
-      }
-
-      this.listeners.forEach((listener) => listener(command, event));
-    });
+    window.addEventListener('keydown', this.keydownHandler);
   }
 
   onCommand(listener: CommandListener): void {
@@ -58,5 +59,10 @@ export class InputHandler {
 
   offCommand(listener: CommandListener): void {
     this.listeners.delete(listener);
+  }
+
+  destroy(): void {
+    this.listeners.clear();
+    window.removeEventListener('keydown', this.keydownHandler);
   }
 }

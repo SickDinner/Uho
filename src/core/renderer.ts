@@ -41,10 +41,15 @@ export class Renderer {
 
   render(grid: RenderCell[][], background: string = '#050710'): void {
     this.clear(background);
-    for (let y = 0; y < grid.length; y += 1) {
-      const row = grid[y];
-      for (let x = 0; x < row.length; x += 1) {
+
+    for (let y = 0; y < Math.min(grid.length, this.rows); y += 1) {
+      const row = grid[y] ?? [];
+      for (let x = 0; x < Math.min(row.length, this.columns); x += 1) {
         const cell = row[x];
+        if (!cell) {
+          continue;
+        }
+
         this.drawCell(x, y, cell);
       }
     }
