@@ -93,6 +93,14 @@ interface SimulationStepPlan {
   remainingAccumulator: number;
 }
 
+
+function normalizeMaxSteps(maxSteps: number): number {
+  if (Number.isNaN(maxSteps)) return 0;
+  if (maxSteps === Number.POSITIVE_INFINITY) return Number.POSITIVE_INFINITY;
+  if (!Number.isFinite(maxSteps)) return 0;
+  return Math.max(0, Math.floor(maxSteps));
+}
+
 export function planSimulationSteps(
   accumulator: number,
   tickSeconds: number,
@@ -100,7 +108,7 @@ export function planSimulationSteps(
 ): SimulationStepPlan {
   const safeAccumulator = Number.isFinite(accumulator) ? Math.max(0, accumulator) : 0;
   const safeTickSeconds = Number.isFinite(tickSeconds) ? tickSeconds : 0;
-  const safeMaxSteps = Number.isNaN(maxSteps) ? 0 : Math.max(0, Math.floor(maxSteps));
+  const safeMaxSteps = normalizeMaxSteps(maxSteps);
 
   if (safeTickSeconds <= 0 || safeMaxSteps <= 0) {
     return { steps: 0, remainingAccumulator: safeAccumulator };

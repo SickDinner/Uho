@@ -107,6 +107,14 @@ describe('genius-life-app helpers', () => {
     expect(plan.remainingAccumulator).toBeCloseTo(tickSeconds * 0.5, 10);
   });
 
+  it('planSimulationSteps rejects negative infinite maxSteps', () => {
+    const tickSeconds = 1 / 60;
+    const plan = planSimulationSteps(tickSeconds * 3.5, tickSeconds, Number.NEGATIVE_INFINITY);
+
+    expect(plan.steps).toBe(0);
+    expect(plan.remainingAccumulator).toBeCloseTo(tickSeconds * 3.5, 10);
+  });
+
 
   it('planSimulationSteps avoids stepping when tickSeconds is invalid', () => {
     const accumulator = 1;
