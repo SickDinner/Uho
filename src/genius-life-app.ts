@@ -56,6 +56,7 @@ interface GlobalState {
   harmonyBoost: number;
   debugOverlay: boolean;
   visualFx: boolean;
+  showLabels: boolean;
   simIntensity: number;
   mode: 'Calm' | 'Balanced' | 'Chaos';
 }
@@ -72,6 +73,12 @@ export function inferModeForIntensity(intensity: number): SimMode {
   if (intensity <= 0.8) return 'Calm';
   if (intensity >= 1.6) return 'Chaos';
   return 'Balanced';
+}
+
+export function seasonPaceModifier(season: GlobalState['season']): number {
+  if (season === 'talvi') return 1.15;
+  if (season === 'kesä') return 0.88;
+  return 1;
 }
 
 const NAMES = ['Aino', 'Eero', 'Veera', 'Sisu', 'Lumi', 'Milo', 'Nora', 'Onni', 'Helmi', 'Otso'];
@@ -109,6 +116,8 @@ export class GeniusLifeApp {
   private running = false;
   private backgroundDrift = 0;
   private readonly uiUpdateStride = 4;
+  private gridCanvas: HTMLCanvasElement | null = null;
+  private gridCell = 40;
   private random = Math.random;
   private activeSeed: number | null = null;
 
@@ -120,6 +129,7 @@ export class GeniusLifeApp {
     harmonyBoost: 0,
     debugOverlay: true,
     visualFx: true,
+    showLabels: true,
     simIntensity: 1,
     mode: 'Balanced'
   };
@@ -192,6 +202,7 @@ export class GeniusLifeApp {
       if (nextWidth !== this.canvas.width || nextHeight !== this.canvas.height) {
         this.canvas.width = nextWidth;
         this.canvas.height = nextHeight;
+        this.rebuildGridCache();
       }
     };
 
@@ -207,6 +218,7 @@ export class GeniusLifeApp {
       <button id="ideaBtn">🧠 Ideapurkaus</button>
       <button id="overlayBtn">📊 Overlay: ON</button>
       <button id="fxBtn">✨ Efektit: ON</button>
+      <button id="labelsBtn">🏷️ Nimet: ON</button>
       <button id="seedBtn">🎲 Satunnainen seed</button>
       <div class="mode-row">
         <button id="modeCalmBtn">🟢 Calm</button>
@@ -226,6 +238,7 @@ export class GeniusLifeApp {
     const boostBtn = document.getElementById('boostBtn') as HTMLButtonElement;
     const ideaBtn = document.getElementById('ideaBtn') as HTMLButtonElement;
     this.fxBtn = document.getElementById('fxBtn') as HTMLButtonElement;
+    const labelsBtn = document.getElementById('labelsBtn') as HTMLButtonElement;
     this.seedBtn = document.getElementById('seedBtn') as HTMLButtonElement;
     const modeCalmBtn = document.getElementById('modeCalmBtn') as HTMLButtonElement;
     const modeBalancedBtn = document.getElementById('modeBalancedBtn') as HTMLButtonElement;
@@ -256,6 +269,10 @@ export class GeniusLifeApp {
     this.fxBtn.addEventListener('click', () => {
       this.state.visualFx = !this.state.visualFx;
       if (this.fxBtn) this.fxBtn.textContent = `✨ Efektit: ${this.state.visualFx ? 'ON' : 'OFF'}`;
+    });
+    labelsBtn.addEventListener('click', () => {
+      this.state.showLabels = !this.state.showLabels;
+      labelsBtn.textContent = `🏷️ Nimet: ${this.state.showLabels ? 'ON' : 'OFF'}`;
     });
     this.seedBtn.addEventListener('click', () => {
       this.activeSeed = Math.floor(Math.random() * 0xffffffff);
@@ -341,8 +358,7 @@ export class GeniusLifeApp {
     this.state.harmonyBoost = 0;
     this.state.debugOverlay = true;
     this.state.visualFx = true;
-    this.state.simIntensity = 1;
-    this.state.mode = 'Balanced';
+    this.state.showLabels = true;
     this.state.season = 'kevät';
     this.state.paused = false;
     this.state.speed = 1;
@@ -352,7 +368,9 @@ export class GeniusLifeApp {
     if (this.speedBtn) this.speedBtn.textContent = '⚡ Nopeus x1';
     if (this.overlayBtn) this.overlayBtn.textContent = '📊 Overlay: ON';
     if (this.fxBtn) this.fxBtn.textContent = '✨ Efektit: ON';
-    if (this.intensityInput) this.intensityInput.value = '1';
+    const labelsBtn = document.getElementById('labelsBtn') as HTMLButtonElement | null;
+    if (labelsBtn) labelsBtn.textContent = '🏷️ Nimet: ON';
+    if (this.intensityInput) this.intensityInput.value = String(this.state.simIntensity);
 
     this.updatePanels();
     this.log('🌍 Uusi maailma luotu. NeoKylä alkaa alusta.', 'system');
@@ -481,7 +499,7 @@ export class GeniusLifeApp {
     for (const citizen of this.citizens) {
       if (!citizen.alive) continue;
 
-      const seasonModifier = this.state.season === 'talvi' ? 1.15 : this.state.season === 'kesä' ? 0.88 : 1;
+      const seasonModifier = seasonPaceModifier(this.state.season);
       citizen.age += dt * 0.08;
       const pace = this.state.simIntensity;
       citizen.needs.energy -= dt * 3.1 * seasonModifier * pace;
@@ -621,7 +639,7 @@ export class GeniusLifeApp {
   }
 
   private render(): void {
-    this.ctx.fillStyle = '#05070f';
+    this.ctx.fillStyle = this.state.visualFx ? 'rgba(5, 7, 15, 0.35)' : '#05070f';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     this.backgroundDrift += 0.003;
     this.drawGrid();
@@ -643,9 +661,11 @@ export class GeniusLifeApp {
         this.ctx.stroke();
       }
 
-      this.ctx.fillStyle = '#d8e0ff';
-      this.ctx.font = '10px monospace';
-      this.ctx.fillText(citizen.name, citizen.x - 22, citizen.y - 12);
+      if (this.state.showLabels) {
+        this.ctx.fillStyle = '#d8e0ff';
+        this.ctx.font = '10px monospace';
+        this.ctx.fillText(citizen.name, citizen.x - 22, citizen.y - 12);
+      }
     }
 
     if (this.state.paused) {
@@ -697,23 +717,43 @@ export class GeniusLifeApp {
   }
 
   private drawGrid(): void {
-    const glow = 0.18 + Math.abs(Math.sin(this.backgroundDrift)) * 0.12;
-    this.ctx.strokeStyle = `rgba(56, 74, 120, ${glow})`;
-    this.ctx.lineWidth = 1;
-
-    for (let x = 0; x <= this.canvas.width; x += 40) {
-      this.ctx.beginPath();
-      this.ctx.moveTo(x, 0);
-      this.ctx.lineTo(x, this.canvas.height);
-      this.ctx.stroke();
+    if (!this.gridCanvas) {
+      this.rebuildGridCache();
     }
 
-    for (let y = 0; y <= this.canvas.height; y += 40) {
-      this.ctx.beginPath();
-      this.ctx.moveTo(0, y);
-      this.ctx.lineTo(this.canvas.width, y);
-      this.ctx.stroke();
+    if (!this.gridCanvas) return;
+
+    const glow = 0.2 + Math.abs(Math.sin(this.backgroundDrift)) * 0.15;
+    this.ctx.globalAlpha = glow;
+    this.ctx.drawImage(this.gridCanvas, 0, 0);
+    this.ctx.globalAlpha = 1;
+  }
+
+  private rebuildGridCache(): void {
+    const gridCanvas = document.createElement('canvas');
+    gridCanvas.width = this.canvas.width;
+    gridCanvas.height = this.canvas.height;
+    const gridCtx = gridCanvas.getContext('2d');
+    if (!gridCtx) return;
+
+    gridCtx.strokeStyle = 'rgba(56, 74, 120, 0.9)';
+    gridCtx.lineWidth = 1;
+
+    for (let x = 0; x <= this.canvas.width; x += this.gridCell) {
+      gridCtx.beginPath();
+      gridCtx.moveTo(x, 0);
+      gridCtx.lineTo(x, this.canvas.height);
+      gridCtx.stroke();
     }
+
+    for (let y = 0; y <= this.canvas.height; y += this.gridCell) {
+      gridCtx.beginPath();
+      gridCtx.moveTo(0, y);
+      gridCtx.lineTo(this.canvas.width, y);
+      gridCtx.stroke();
+    }
+
+    this.gridCanvas = gridCanvas;
   }
 
   private updatePanels(): void {

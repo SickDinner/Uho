@@ -4,6 +4,7 @@ import {
   computeMood,
   createSeededRandom,
   inferModeForIntensity,
+  seasonPaceModifier,
   squaredDistance,
   type NeedsState
 } from '../src/genius-life-app.ts';
@@ -40,6 +41,14 @@ describe('genius-life-app helpers', () => {
       expect(value).toBeGreaterThanOrEqual(0);
       expect(value).toBeLessThan(1);
     });
+  });
+
+
+  it('seasonPaceModifier maps seasons to expected pace values', () => {
+    expect(seasonPaceModifier('kevät')).toBe(1);
+    expect(seasonPaceModifier('kesä')).toBe(0.88);
+    expect(seasonPaceModifier('syksy')).toBe(1);
+    expect(seasonPaceModifier('talvi')).toBe(1.15);
   });
 
   it('inferModeForIntensity maps values to modes', () => {
