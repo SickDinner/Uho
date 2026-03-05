@@ -36,17 +36,17 @@ export interface MusicState {
 
 export class AdvancedAudioEngine {
   private howlSounds: Map<string, Howl> = new Map();
-  private toneSynths: Map<string, Tone.Synth | Tone.PolySynth> = new Map();
+  private toneSynths: Map<string, any> = new Map();
   private currentMusicTrack?: Howl;
   
   // Audio processing nodes
-  private masterGain!: Tone.Gain;
-  private musicGain!: Tone.Gain;
-  private sfxGain!: Tone.Gain;
-  private ambientGain!: Tone.Gain;
-  private reverbNode!: Tone.Reverb;
-  private filterNode!: Tone.Filter;
-  private compressor!: Tone.Compressor;
+  private masterGain!: any;
+  private musicGain!: any;
+  private sfxGain!: any;
+  private ambientGain!: any;
+  private reverbNode!: any;
+  private filterNode!: any;
+  private compressor!: any;
   
   // Spatial audio
   private listenerPosition: Vector2 = { x: 0, y: 0 };
@@ -59,15 +59,15 @@ export class AdvancedAudioEngine {
   // Weather and ambient systems
   private weatherAudio!: WeatherAudio;
   private ambientLoop?: Howl;
-  private windNoise?: Tone.Noise;
+  private windNoise?: any;
   
   // Music system
   private musicState!: MusicState;
   private musicCrossfader: number = 0;
   
   // Procedural sound generation
-  private footstepSynth!: Tone.NoiseSynth;
-  private glitchSynth!: Tone.FMSynth;
+  private footstepSynth!: any;
+  private glitchSynth!: any;
   
   // Volume controls
   private volumes = {
@@ -243,7 +243,7 @@ export class AdvancedAudioEngine {
           this.howlSounds.set(id, howl);
           resolve();
         },
-        onloaderror: (soundId, error) => {
+        onloaderror: (soundId: number | undefined, error: unknown) => {
           console.warn(`Failed to load sound ${soundId}:`, error);
           resolve(); // Continue without the sound
         }
@@ -505,7 +505,7 @@ export class AdvancedAudioEngine {
   }
 
   // Audio analysis and reactive systems
-  getMusicAnalyzer(): Tone.Analyser | null {
+  getMusicAnalyzer(): any | null {
     if (!this.currentMusicTrack) return null;
     
     const analyzer = new Tone.Analyser('fft', 256);

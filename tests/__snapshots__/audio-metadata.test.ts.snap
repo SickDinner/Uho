@@ -1,0 +1,12 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`AUDIO_CATEGORIES constant > lists known categories in a stable order 1`] = `
+[
+  "music",
+  "ambient",
+  "sfx",
+  "weather",
+  "ui",
+  "voice",
+]
+`;

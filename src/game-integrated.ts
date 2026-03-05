@@ -6,14 +6,18 @@ import { inputManager } from '@core/input.ts';
 import { audioManager } from '@core/audio.ts';
 import { tweenManager } from '@core/animation.ts';
 import { advancedAudioEngine } from '@core/advanced-audio.ts';
-import { audioAssetRegistry } from '@core/audio-assets.ts';
+import {
+  describeLoadedAudio,
+  ensureAudioInitialized,
+  updateListenerPosition,
+} from '@/audio/audio-integration-example.ts';
+import { ensureGeneratedSpriteSheets } from '@/sprites/generated-sheets.ts';
 import { assetManager } from '@core/asset-manager.ts';
 
 // Import existing game scene
 import { World } from '@core/ecs.ts';
 import { Transform, Sprite, Stats, Needs, Inventory, Wallet, Skills, Addiction, LawEnforcement } from '@core/components.ts';
 import { MapManager, TILE_TYPES } from '@core/map.ts';
-import { spriteManager } from '@core/sprites.ts';
 import { particleSystem } from '@core/particles.ts';
 import { NPCManager } from '@core/npc.ts';
 import { Camera } from '@core/camera.ts';
@@ -187,7 +191,9 @@ class GameplayScene extends Scene {
     
     // Add components
     this.world.componentManager.addComponent(new Transform(player.id, 10, 10));
-    this.world.componentManager.addComponent(new Sprite(player.id, 'player')); // Player sprite
+    const sprite = new Sprite(player.id, 'player');
+    sprite.setAnimation('idle_south');
+    this.world.componentManager.addComponent(sprite); // Player sprite
     
     // Use character data if available, otherwise use defaults
     const statsData = characterData ? characterData.stats : {
@@ -332,7 +338,7 @@ class GameplayScene extends Scene {
         this.addMovementFeedback(newX, newY);
         
         // Update listener position for spatial audio
-        advancedAudioEngine.setListenerPosition({ x: newX, y: newY });
+        updateListenerPosition({ x: newX, y: newY });
         
         // Check for location interactions
         this.checkLocationInteractions(newX, newY);
@@ -386,17 +392,20 @@ class GameplayScene extends Scene {
   // Advanced Audio System Integration
   private async initializeAudio(): Promise<void> {
     try {
-      // Ensure audio assets are loaded
-      await audioAssetRegistry.initialize();
-      
-      // Set initial listener position
+      // Ensure audio assets are loaded and baseline mixing is configured
       if (this.playerId) {
         const transform = this.world.componentManager.getComponent(this.playerId, Transform);
-        if (transform) {
-          advancedAudioEngine.setListenerPosition({ x: transform.x, y: transform.y });
-        }
+        await ensureAudioInitialized(
+          transform ? { x: transform.x, y: transform.y } : undefined
+        );
+      } else {
+        await ensureAudioInitialized();
       }
-      
+
+      // Provide a compact summary in the console for debugging builds
+      const summaries = describeLoadedAudio();
+      console.log('🎧 Audio categories ready:', summaries);
+
       console.log('🎵 Advanced audio system initialized for gameplay');
     } catch (error) {
       console.warn('Failed to initialize advanced audio:', error);
@@ -450,23 +459,9 @@ class GameplayScene extends Scene {
   
   private async loadSprites(): Promise<void> {
     try {
-      await spriteManager.loadSpriteSheet(
-        'player',
-        'assets/sprites/player.png',
-        16, 16,
-        {
-          idle_south: { name: 'idle_south', frames: [0], duration: 1000, loop: true },
-          idle_north: { name: 'idle_north', frames: [12], duration: 1000, loop: true },
-          idle_west: { name: 'idle_west', frames: [4], duration: 1000, loop: true },
-          idle_east: { name: 'idle_east', frames: [8], duration: 1000, loop: true },
-          walk_south: { name: 'walk_south', frames: [0, 1, 2, 3], duration: 200, loop: true },
-          walk_north: { name: 'walk_north', frames: [12, 13, 14, 15], duration: 200, loop: true },
-          walk_west: { name: 'walk_west', frames: [4, 5, 6, 7], duration: 200, loop: true },
-          walk_east: { name: 'walk_east', frames: [8, 9, 10, 11], duration: 200, loop: true }
-        }
-      );
+      await ensureGeneratedSpriteSheets();
     } catch (error) {
-      console.warn('Could not load sprites, using fallback rendering:', error);
+      console.warn('Could not generate sprites, using fallback rendering:', error);
     }
   }
   
@@ -826,8 +821,8 @@ export class IntegratedGame {
       
       // Initialize audio assets
       console.log('Loading audio assets...');
-      await audioAssetRegistry.initialize();
-      
+      await ensureAudioInitialized();
+
       console.log('All assets loaded successfully!');
     } catch (error) {
       console.warn('Some assets failed to load, but continuing anyway:', error);
