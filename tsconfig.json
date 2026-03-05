@@ -22,13 +22,14 @@
     }
   },
   "include": [
-    "src/**/*",
-    "core/**/*",
-    "data/**/*",
-    "tests/**/*"
+    "src/main.ts",
+    "src/core/**/*.ts",
+    "src/game/**/*.ts",
+    "src/data/**/*.json"
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "src/top-down-village.ts"
   ]
 }

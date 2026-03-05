@@ -222,7 +222,7 @@ export class TopDownVillageGenerator {
       dialogue: [
         'Welcome to my shop! Best prices in town!',
         'Fresh goods arrive every week from the capital.',
-        'Is there anything specific you\\'re looking for?'
+        "Is there anything specific you're looking for?"
       ],
       quests: [
         {
@@ -241,7 +241,7 @@ export class TopDownVillageGenerator {
       role: 'guard',
       dialogue: [
         'Stay alert, citizen. Dangerous times ahead.',
-        'I\\'ve been guarding this village for 15 years.',
+        "I've been guarding this village for 15 years.",
         'Report any suspicious activity to me immediately.'
       ],
       patrol: [

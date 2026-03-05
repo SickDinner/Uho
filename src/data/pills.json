@@ -1,0 +1,44 @@
+[
+  {
+    "id": "minty-frisbee",
+    "name": "Minty Frisbee Lozenge",
+    "color": "#3ef5ff",
+    "icon": "●",
+    "tagline": "A pill shaped like a tax audit." 
+  },
+  {
+    "id": "nightclub-ash",
+    "name": "Nightclub Ash Tablet",
+    "color": "#f542d1",
+    "icon": "●",
+    "tagline": "It smells like a DJ's armpit." 
+  },
+  {
+    "id": "grainy-halitosis",
+    "name": "Grainy Halitosis Pearl",
+    "color": "#ffe066",
+    "icon": "●",
+    "tagline": "Sizzles like champagne in a bidet." 
+  },
+  {
+    "id": "sisu-disco",
+    "name": "Sisu Disco Capsule",
+    "color": "#64ff8f",
+    "icon": "●",
+    "tagline": "Purrs in Mixtec dialect when shaken." 
+  },
+  {
+    "id": "frostbite-gumball",
+    "name": "Frostbite Gumball",
+    "color": "#9bb0ff",
+    "icon": "●",
+    "tagline": "Cold enough to sue a sauna." 
+  },
+  {
+    "id": "sardine-crystal",
+    "name": "Sardine Crystal Pill",
+    "color": "#ffa07a",
+    "icon": "●",
+    "tagline": "Smuggled out of a karaoke buffet." 
+  }
+]

@@ -5,11 +5,12 @@
   "main": "src/main.ts",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "test": "vitest",
-    "test:ui": "vitest --ui"
+    "dev": "node ./node_modules/vite/bin/vite.js",
+    "build": "node ./node_modules/typescript/bin/tsc && node ./node_modules/vite/bin/vite.js build",
+    "preview": "node ./node_modules/vite/bin/vite.js preview",
+    "test": "node ./node_modules/vitest/vitest.mjs --passWithNoTests",
+    "test:ui": "node ./node_modules/vitest/vitest.mjs --ui",
+    "prebuild": "node ./scripts/ensure-esbuild.mjs"
   },
   "keywords": [
     "game",
@@ -21,12 +22,14 @@
   "author": "Ville Peuho",
   "license": "MIT",
   "devDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.59.0",
     "@types/howler": "^2.2.12",
     "@types/node": "^20.0.0",
-    "@vitest/ui": "^1.0.0",
+    "@vitest/ui": "^4.0.18",
+    "jsdom": "^28.1.0",
     "typescript": "^5.0.0",
-    "vite": "^5.0.0",
-    "vitest": "^1.0.0"
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
     "@tonejs/ui": "^0.1.5",
