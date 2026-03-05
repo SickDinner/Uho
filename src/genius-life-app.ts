@@ -491,9 +491,8 @@ export class GeniusLifeApp {
         simulatedSteps += 1;
       }
 
-      if (simulatedSteps === MAX_SIM_STEPS_PER_FRAME) {
-        this.simulationAccumulator = 0;
-      }
+      // Preserve any unprocessed simulation time so long/slow frames catch up deterministically
+      // across subsequent render frames instead of dropping elapsed simulation progress.
     }
     this.render();
     this.raf = requestAnimationFrame(this.loop);
