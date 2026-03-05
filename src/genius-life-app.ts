@@ -86,6 +86,7 @@ const PROFESSIONS: Profession[] = ['Keksijä', 'Taiteilija', 'Opettaja', 'Rakent
 const SEASONS: GlobalState['season'][] = ['kevät', 'kesä', 'syksy', 'talvi'];
 const SIM_TICK_SECONDS = 1 / 60;
 const MAX_SIM_STEPS_PER_FRAME = 8;
+const SIM_ACCUMULATOR_EPSILON = 1e-9;
 
 export interface SimulationStepPlan {
   steps: number;
@@ -111,7 +112,7 @@ export function planSimulationSteps(
 
   return {
     steps,
-    remainingAccumulator: remainingAccumulator < 1e-9 ? 0 : remainingAccumulator
+    remainingAccumulator: remainingAccumulator < SIM_ACCUMULATOR_EPSILON ? 0 : remainingAccumulator
   };
 }
 

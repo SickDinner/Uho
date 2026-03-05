@@ -90,6 +90,16 @@ describe('genius-life-app helpers', () => {
     expect(planSimulationSteps(Number.NaN, tickSeconds, 8)).toEqual({ steps: 0, remainingAccumulator: 0 });
   });
 
+  it('planSimulationSteps clamps near-zero floating remainder to zero', () => {
+    const tickSeconds = 0.1;
+    const accumulator = 0.30000000000000004;
+
+    const plan = planSimulationSteps(accumulator, tickSeconds, 3);
+
+    expect(plan.steps).toBe(3);
+    expect(plan.remainingAccumulator).toBe(0);
+  });
+
 
   it('seasonPaceModifier maps seasons to expected pace values', () => {
     expect(seasonPaceModifier('kevät')).toBe(1);
