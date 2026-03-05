@@ -100,6 +100,19 @@ describe('genius-life-app helpers', () => {
     expect(plan.remainingAccumulator).toBe(0);
   });
 
+  it('planSimulationSteps avoids stepping when tickSeconds is invalid', () => {
+    const accumulator = 1;
+
+    expect(planSimulationSteps(accumulator, Number.NaN, 8)).toEqual({
+      steps: 0,
+      remainingAccumulator: accumulator
+    });
+    expect(planSimulationSteps(accumulator, Number.POSITIVE_INFINITY, 8)).toEqual({
+      steps: 0,
+      remainingAccumulator: accumulator
+    });
+  });
+
 
   it('seasonPaceModifier maps seasons to expected pace values', () => {
     expect(seasonPaceModifier('kevät')).toBe(1);
