@@ -20,3 +20,17 @@ rad.json
 *.flf
 #Test results file
 TestResults.xml
+
+### JavaScript / Node ###
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+# macOS Finder metadata
+*.DS_Store
+
+### Windows Explorer metadata ###
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
