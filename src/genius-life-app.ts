@@ -91,6 +91,7 @@ const SIM_ACCUMULATOR_EPSILON = 1e-9;
 interface SimulationStepPlan {
   steps: number;
   remainingAccumulator: number;
+  capped: boolean;
 }
 
 
@@ -124,15 +125,16 @@ export function planSimulationSteps(
   const safeMaxSteps = normalizeMaxSteps(maxSteps);
 
   if (safeTickSeconds <= 0 || safeMaxSteps <= 0) {
-    return { steps: 0, remainingAccumulator: safeAccumulator };
+    return { steps: 0, remainingAccumulator: safeAccumulator, capped: false };
   }
 
   const possibleSteps = Math.max(0, Math.floor(safeAccumulator / safeTickSeconds));
   const steps = Math.min(possibleSteps, safeMaxSteps);
+  const capped = possibleSteps > safeMaxSteps;
   const rawRemainingAccumulator = safeAccumulator - steps * safeTickSeconds;
   const remainingAccumulator = rawRemainingAccumulator <= SIM_ACCUMULATOR_EPSILON ? 0 : rawRemainingAccumulator;
 
-  return { steps, remainingAccumulator };
+  return { steps, remainingAccumulator, capped };
 }
 
 export class GeniusLifeApp {
