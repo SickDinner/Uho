@@ -98,17 +98,16 @@ export function planSimulationSteps(
   tickSeconds: number,
   maxSteps: number
 ): SimulationStepPlan {
-  const normalizedAccumulator = Number.isFinite(accumulator) ? Math.max(0, accumulator) : 0;
-  const normalizedTickSeconds = Number.isFinite(tickSeconds) ? tickSeconds : 0;
-  const normalizedMaxSteps = Number.isFinite(maxSteps) ? Math.floor(maxSteps) : 0;
+  const safeAccumulator = Number.isFinite(accumulator) ? Math.max(0, accumulator) : 0;
+  const safeMaxSteps = Number.isFinite(maxSteps) ? Math.floor(maxSteps) : 0;
 
-  if (normalizedTickSeconds <= 0 || normalizedMaxSteps <= 0) {
-    return { steps: 0, remainingAccumulator: normalizedAccumulator };
+  if (tickSeconds <= 0 || safeMaxSteps <= 0) {
+    return { steps: 0, remainingAccumulator: safeAccumulator };
   }
 
-  const possibleSteps = Math.floor(normalizedAccumulator / normalizedTickSeconds);
-  const steps = Math.min(possibleSteps, normalizedMaxSteps);
-  const remainingAccumulator = normalizedAccumulator - steps * normalizedTickSeconds;
+  const possibleSteps = Math.floor(safeAccumulator / tickSeconds);
+  const steps = Math.min(possibleSteps, safeMaxSteps);
+  const remainingAccumulator = safeAccumulator - steps * tickSeconds;
 
   return {
     steps,
