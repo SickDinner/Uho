@@ -99,6 +99,11 @@ function normalizeAccumulator(accumulator: number): number {
   return Math.max(0, accumulator);
 }
 
+function normalizeTickSeconds(tickSeconds: number): number {
+  if (!Number.isFinite(tickSeconds)) return 0;
+  return tickSeconds;
+}
+
 function normalizeMaxSteps(maxSteps: number): number {
   if (maxSteps === Number.POSITIVE_INFINITY) return Number.POSITIVE_INFINITY;
   if (!Number.isFinite(maxSteps)) return 0;
@@ -111,7 +116,7 @@ export function planSimulationSteps(
   maxSteps: number
 ): SimulationStepPlan {
   const safeAccumulator = normalizeAccumulator(accumulator);
-  const safeTickSeconds = Number.isFinite(tickSeconds) ? tickSeconds : 0;
+  const safeTickSeconds = normalizeTickSeconds(tickSeconds);
   const safeMaxSteps = normalizeMaxSteps(maxSteps);
 
   if (safeTickSeconds <= 0 || safeMaxSteps <= 0) {
