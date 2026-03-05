@@ -37,12 +37,13 @@ export type CommandListener = (command: Command, event: KeyboardEvent) => void;
 export class InputHandler {
   private listeners: Set<CommandListener> = new Set();
   private readonly keydownHandler = (event: KeyboardEvent): void => {
-    const command = keyBindings[event.key];
+    const normalizedKey = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+    const command = keyBindings[normalizedKey];
     if (!command) {
       return;
     }
 
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) {
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(normalizedKey)) {
       event.preventDefault();
     }
 

@@ -15,6 +15,19 @@ describe('InputHandler', () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'w' }));
     expect(listener).toHaveBeenCalledTimes(1);
   });
+
+
+  it('accepts uppercase WASD input', () => {
+    const handler = new InputHandler();
+    const listener = vi.fn();
+    handler.onCommand(listener);
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'W' }));
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener.mock.calls[0][0]).toBe('move-up');
+
+    handler.destroy();
+  });
 });
 
 describe('GameLog', () => {
