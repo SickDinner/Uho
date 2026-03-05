@@ -84,6 +84,10 @@ export function seasonPaceModifier(season: GlobalState['season']): number {
 const NAMES = ['Aino', 'Eero', 'Veera', 'Sisu', 'Lumi', 'Milo', 'Nora', 'Onni', 'Helmi', 'Otso'];
 const PROFESSIONS: Profession[] = ['Keksijä', 'Taiteilija', 'Opettaja', 'Rakentaja'];
 const SEASONS: GlobalState['season'][] = ['kevät', 'kesä', 'syksy', 'talvi'];
+const SIM_TICK_SECONDS = 1 / 60;
+const MAX_SIM_STEPS_PER_FRAME = 8;
+const MAX_ACCUMULATED_SIM_SECONDS = SIM_TICK_SECONDS * 240;
+const SIM_TIME_EPSILON = 1e-9;
 
 export class GeniusLifeApp {
   private canvas: HTMLCanvasElement;
@@ -94,6 +98,7 @@ export class GeniusLifeApp {
   private tick = 0;
   private raf = 0;
   private lastTime = 0;
+  private simulationAccumulator = 0;
 
   private messageLog: HTMLElement;
   private statsPanel: HTMLElement;
@@ -174,6 +179,7 @@ export class GeniusLifeApp {
     if (this.running) return;
     this.running = true;
     this.lastTime = performance.now();
+    this.simulationAccumulator = 0;
     this.loop(this.lastTime);
   }
 
@@ -474,12 +480,24 @@ export class GeniusLifeApp {
 
   private loop = (now: number): void => {
     if (!this.running) return;
-    const dt = Math.min((now - this.lastTime) / 1000, 0.05);
+    const dt = Math.min((now - this.lastTime) / 1000, 0.25);
     this.lastTime = now;
     this.updateFps(dt);
 
     if (!this.state.paused) {
-      this.update(dt * this.state.speed);
+      this.simulationAccumulator += dt * this.state.speed;
+      this.simulationAccumulator = Math.min(this.simulationAccumulator, MAX_ACCUMULATED_SIM_SECONDS);
+
+      const availableSteps = Math.floor(this.simulationAccumulator / SIM_TICK_SECONDS);
+      const stepsToSimulate = Math.min(availableSteps, MAX_SIM_STEPS_PER_FRAME);
+      for (let i = 0; i < stepsToSimulate; i++) {
+        this.update(SIM_TICK_SECONDS);
+      }
+
+      this.simulationAccumulator -= stepsToSimulate * SIM_TICK_SECONDS;
+      if (this.simulationAccumulator < SIM_TIME_EPSILON) {
+        this.simulationAccumulator = 0;
+      }
     }
     this.render();
     this.raf = requestAnimationFrame(this.loop);
