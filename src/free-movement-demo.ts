@@ -15,6 +15,8 @@ export interface FreeMovementConfig {
   useFreMovement: boolean;
   debugMode: boolean;
   pixelScale: number; // How many pixels per grid tile (for conversion)
+  movementSmoothing: number; // 0..1, softer acceleration curve
+  idleDamping: number; // extra damping when no input
 }
 
 export class FreeMovementDemo {
@@ -35,7 +37,9 @@ export class FreeMovementDemo {
   public config: FreeMovementConfig = {
     useFreMovement: true,
     debugMode: true,
-    pixelScale: 32 // 32 pixels = 1 grid tile
+    pixelScale: 32, // 32 pixels = 1 grid tile
+    movementSmoothing: 0.82,
+    idleDamping: 0.9
   };
   
   // Messages
@@ -251,19 +255,26 @@ export class FreeMovementDemo {
       direction.x /= length;
       direction.y /= length;
     }
+
+    const vx = this.playerPhysicsBody.velocity.x;
+    const vy = this.playerPhysicsBody.velocity.y;
+    const speed = Math.sqrt(vx * vx + vy * vy);
+    const speedRatio = Math.min(1, speed / Math.max(1, this.playerPhysicsBody.maxSpeed));
+    const sprintBoost = keys.has('shift') ? 1.35 : 1.0;
+
+    // Softer acceleration near max speed, snappier response from standstill
+    const response = (1 - speedRatio) * this.config.movementSmoothing + (1 - this.config.movementSmoothing);
+    const force = Math.max(0.2, response * sprintBoost);
     
-    // Variable force based on shift key (sprint)
-    let force = keys.has('shift') ? 1.5 : 1.0;
-    
-    // Move the physics body
     if (moving) {
       freePhysicsEngine.moveBody(this.playerPhysicsBody.id, direction, force);
-      
-      // Sync with ECS transform
       this.syncPhysicsToECS();
-      
-      // Update sprite animation if available
       this.updatePlayerAnimation(direction);
+    } else {
+      // Extra damping makes stops feel softer and more controllable
+      this.playerPhysicsBody.velocity.x *= this.config.idleDamping;
+      this.playerPhysicsBody.velocity.y *= this.config.idleDamping;
+      this.updatePlayerAnimation({ x: 0, y: 0 });
     }
   }
 
@@ -473,14 +484,37 @@ export class FreeMovementDemo {
     if (!this.playerPhysicsBody) return;
     
     const screenPos = smoothCamera.worldToScreen(this.playerPhysicsBody.position);
-    
-    // Player circle
-    this.ctx.fillStyle = this.playerPhysicsBody.isMoving ? '#00ff88' : '#44aaff';
     const radius = (this.playerPhysicsBody.collisionShape.radius || 12) * smoothCamera.zoom;
-    
+    const speed = Math.hypot(this.playerPhysicsBody.velocity.x, this.playerPhysicsBody.velocity.y);
+    const speedRatio = Math.min(1, speed / Math.max(1, this.playerPhysicsBody.maxSpeed));
+
+    // Soft ground shadow
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+    this.ctx.beginPath();
+    this.ctx.ellipse(screenPos.x, screenPos.y + radius * 0.6, radius * 0.95, radius * 0.55, 0, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // Outer glow for richer visuals
+    this.ctx.save();
+    this.ctx.shadowBlur = 18 + 16 * speedRatio;
+    this.ctx.shadowColor = this.playerPhysicsBody.isMoving ? 'rgba(0, 255, 136, 0.65)' : 'rgba(68, 170, 255, 0.5)';
+
+    const gradient = this.ctx.createRadialGradient(
+      screenPos.x - radius * 0.25,
+      screenPos.y - radius * 0.3,
+      radius * 0.15,
+      screenPos.x,
+      screenPos.y,
+      radius
+    );
+    gradient.addColorStop(0, this.playerPhysicsBody.isMoving ? '#c6ffe6' : '#cfe8ff');
+    gradient.addColorStop(1, this.playerPhysicsBody.isMoving ? '#00ff88' : '#44aaff');
+
+    this.ctx.fillStyle = gradient;
     this.ctx.beginPath();
     this.ctx.arc(screenPos.x, screenPos.y, radius, 0, Math.PI * 2);
     this.ctx.fill();
+    this.ctx.restore();
     
     // Direction indicator
     if (this.playerPhysicsBody.isMoving) {
