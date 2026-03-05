@@ -100,7 +100,7 @@ export function planSimulationSteps(
 ): SimulationStepPlan {
   const safeAccumulator = Number.isFinite(accumulator) ? Math.max(0, accumulator) : 0;
   const safeTickSeconds = Number.isFinite(tickSeconds) ? tickSeconds : 0;
-  const safeMaxSteps = Number.isFinite(maxSteps) ? Math.floor(maxSteps) : 0;
+  const safeMaxSteps = Number.isNaN(maxSteps) ? 0 : Math.max(0, Math.floor(maxSteps));
 
   if (safeTickSeconds <= 0 || safeMaxSteps <= 0) {
     return { steps: 0, remainingAccumulator: safeAccumulator };

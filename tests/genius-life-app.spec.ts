@@ -99,6 +99,14 @@ describe('genius-life-app helpers', () => {
     expect(plan.steps).toBe(3);
     expect(plan.remainingAccumulator).toBe(0);
   });
+  it('planSimulationSteps treats infinite maxSteps as uncapped for the frame', () => {
+    const tickSeconds = 1 / 60;
+    const plan = planSimulationSteps(tickSeconds * 3.5, tickSeconds, Number.POSITIVE_INFINITY);
+
+    expect(plan.steps).toBe(3);
+    expect(plan.remainingAccumulator).toBeCloseTo(tickSeconds * 0.5, 10);
+  });
+
 
   it('planSimulationSteps avoids stepping when tickSeconds is invalid', () => {
     const accumulator = 1;
