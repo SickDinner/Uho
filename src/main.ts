@@ -9,6 +9,13 @@ import { NPCManager, type NPC } from './game/npcs';
 import { CombatEncounter, type CombatAction, type CombatResolution } from './game/combat';
 import { EventDirector } from './game/events';
 
+
+declare global {
+  interface Window {
+    game?: PillKospiGame;
+  }
+}
+
 interface UIElements {
   statsPanel: HTMLElement;
   inventoryList: HTMLElement;
@@ -93,6 +100,10 @@ class PillKospiGame {
   start(): void {
     this.input.onCommand(this.handleCommand);
     this.refresh();
+  }
+
+  destroy(): void {
+    this.input.destroy();
   }
 
   private handleCommand = (command: Command): void => {
@@ -470,11 +481,17 @@ async function bootstrap(): Promise<void> {
 
   const game = new PillKospiGame(pills, zones);
   game.start();
-  (window as any).game = game;
+  window.game = game;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  bootstrap().catch((error) => {
-    console.error('Failed to bootstrap Pill Kospi adventure', error);
-  });
+  bootstrap()
+    .then(() => {
+      window.addEventListener('beforeunload', () => {
+        window.game?.destroy();
+      }, { once: true });
+    })
+    .catch((error) => {
+      console.error('Failed to bootstrap Pill Kospi adventure', error);
+    });
 });
