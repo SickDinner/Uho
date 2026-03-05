@@ -6,11 +6,12 @@
   "type": "module",
   "scripts": {
     "dev": "node ./node_modules/vite/bin/vite.js",
-    "build": "tsc",
+    "build": "node ./scripts/build.mjs",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "build:full": "tsc && node ./node_modules/vite/bin/vite.js build"
+    "build:full": "tsc && node ./node_modules/vite/bin/vite.js build",
+    "build:types": "node ./node_modules/typescript/bin/tsc"
   },
   "keywords": [
     "game",
