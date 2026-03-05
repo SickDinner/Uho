@@ -9,7 +9,8 @@
     "build": "tsc",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
     "test": "vitest",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "build:full": "tsc && node ./node_modules/vite/bin/vite.js build"
   },
   "keywords": [
     "game",
