@@ -105,6 +105,7 @@ export class GeniusLifeApp {
   private overlayBtn: HTMLButtonElement | null = null;
   private fxBtn: HTMLButtonElement | null = null;
   private seedBtn: HTMLButtonElement | null = null;
+  private labelsBtn: HTMLButtonElement | null = null;
   private intensityInput: HTMLInputElement | null = null;
   private keydownHandler: ((event: KeyboardEvent) => void) | null = null;
   private resizeHandler: (() => void) | null = null;
@@ -229,7 +230,7 @@ export class GeniusLifeApp {
         <input id="intensityInput" type="range" min="0.5" max="2" step="0.1" value="1" />
       </label>
       <button id="resetBtn">🔄 Uusi maailma</button>
-      <div class="controls-hint">Pikanäppäimet: [Space] pause, [F] speed, [D] overlay, [S] seed, [1/2/3] moodi, [R] reset</div>
+      <div class="controls-hint">Pikanäppäimet: [Space] pause, [F] speed, [D] overlay, [S] seed, [L] nimet, [1/2/3] moodi, [R] reset</div>
     `;
 
     this.pauseBtn = document.getElementById('pauseBtn') as HTMLButtonElement | null;
@@ -238,7 +239,7 @@ export class GeniusLifeApp {
     const boostBtn = document.getElementById('boostBtn') as HTMLButtonElement;
     const ideaBtn = document.getElementById('ideaBtn') as HTMLButtonElement;
     this.fxBtn = document.getElementById('fxBtn') as HTMLButtonElement;
-    const labelsBtn = document.getElementById('labelsBtn') as HTMLButtonElement;
+    this.labelsBtn = document.getElementById('labelsBtn') as HTMLButtonElement | null;
     this.seedBtn = document.getElementById('seedBtn') as HTMLButtonElement;
     const modeCalmBtn = document.getElementById('modeCalmBtn') as HTMLButtonElement;
     const modeBalancedBtn = document.getElementById('modeBalancedBtn') as HTMLButtonElement;
@@ -270,15 +271,12 @@ export class GeniusLifeApp {
       this.state.visualFx = !this.state.visualFx;
       if (this.fxBtn) this.fxBtn.textContent = `✨ Efektit: ${this.state.visualFx ? 'ON' : 'OFF'}`;
     });
-    labelsBtn.addEventListener('click', () => {
+    this.labelsBtn?.addEventListener('click', () => {
       this.state.showLabels = !this.state.showLabels;
-      labelsBtn.textContent = `🏷️ Nimet: ${this.state.showLabels ? 'ON' : 'OFF'}`;
+      if (this.labelsBtn) this.labelsBtn.textContent = `🏷️ Nimet: ${this.state.showLabels ? 'ON' : 'OFF'}`;
     });
     this.seedBtn.addEventListener('click', () => {
-      this.activeSeed = Math.floor(Math.random() * 0xffffffff);
-      this.random = createSeededRandom(this.activeSeed);
-      this.resetWorld();
-      this.log(`🎲 Uusi seed käytössä: ${this.activeSeed}`, 'system');
+      this.randomizeSeedAndReset();
     });
     this.intensityInput.addEventListener('input', () => {
       if (!this.intensityInput) return;
@@ -319,10 +317,10 @@ export class GeniusLifeApp {
       } else if (event.key.toLowerCase() === 'r') {
         this.resetWorld();
       } else if (event.key.toLowerCase() === 's') {
-        this.activeSeed = Math.floor(Math.random() * 0xffffffff);
-        this.random = createSeededRandom(this.activeSeed);
-        this.resetWorld();
-        this.log(`🎲 Uusi seed käytössä: ${this.activeSeed}`, 'system');
+        this.randomizeSeedAndReset();
+      } else if (event.key.toLowerCase() === 'l') {
+        this.state.showLabels = !this.state.showLabels;
+        if (this.labelsBtn) this.labelsBtn.textContent = `🏷️ Nimet: ${this.state.showLabels ? 'ON' : 'OFF'}`;
       } else if (event.key === '1') {
         if (!this.intensityInput) return;
         this.applyMode('Calm', this.intensityInput);
@@ -368,8 +366,7 @@ export class GeniusLifeApp {
     if (this.speedBtn) this.speedBtn.textContent = '⚡ Nopeus x1';
     if (this.overlayBtn) this.overlayBtn.textContent = '📊 Overlay: ON';
     if (this.fxBtn) this.fxBtn.textContent = '✨ Efektit: ON';
-    const labelsBtn = document.getElementById('labelsBtn') as HTMLButtonElement | null;
-    if (labelsBtn) labelsBtn.textContent = '🏷️ Nimet: ON';
+    if (this.labelsBtn) this.labelsBtn.textContent = '🏷️ Nimet: ON';
     if (this.intensityInput) this.intensityInput.value = String(this.state.simIntensity);
 
     this.updatePanels();
@@ -408,6 +405,13 @@ export class GeniusLifeApp {
     this.state.simIntensity = intensity;
     intensityInput.value = String(intensity);
     this.log(`🧭 Simulaatiotila: ${mode}`, 'system');
+  }
+
+  private randomizeSeedAndReset(): void {
+    this.activeSeed = Math.floor(Math.random() * 0xffffffff);
+    this.random = createSeededRandom(this.activeSeed);
+    this.resetWorld();
+    this.log(`🎲 Uusi seed käytössä: ${this.activeSeed}`, 'system');
   }
 
   private pickMostCreativeCitizens(limit: number): Citizen[] {
