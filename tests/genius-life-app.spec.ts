@@ -103,6 +103,17 @@ describe('genius-life-app helpers', () => {
     expect(planSimulationSteps(-1, tickSeconds, 8)).toEqual({ steps: 0, remainingAccumulator: 0, capped: false });
     expect(planSimulationSteps(Number.NaN, tickSeconds, 8)).toEqual({ steps: 0, remainingAccumulator: 0, capped: false });
   });
+  it('planSimulationSteps avoids undercount from floating division precision', () => {
+    const tickSeconds = 0.1;
+    const accumulator = 0.3;
+
+    const plan = planSimulationSteps(accumulator, tickSeconds, 3);
+
+    expect(plan.steps).toBe(3);
+    expect(plan.remainingAccumulator).toBe(0);
+    expect(plan.capped).toBe(false);
+  });
+
 
   it('planSimulationSteps clamps near-zero floating remainder to zero', () => {
     const tickSeconds = 0.1;
@@ -199,7 +210,7 @@ describe('genius-life-app helpers', () => {
     const tickSeconds = 1 / 60;
     const plan = planSimulationSteps(tickSeconds * 7.9999999999, tickSeconds, 8);
 
-    expect(plan.steps).toBe(7);
+    expect(plan.steps).toBe(8);
     expect(plan.remainingAccumulator).toBeGreaterThanOrEqual(0);
     expect(plan.capped).toBe(false);
     expect(plan.remainingAccumulator).toBeLessThan(tickSeconds);

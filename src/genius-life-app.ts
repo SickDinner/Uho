@@ -128,7 +128,7 @@ export function planSimulationSteps(
     return { steps: 0, remainingAccumulator: safeAccumulator, capped: false };
   }
 
-  const possibleSteps = Math.max(0, Math.floor(safeAccumulator / safeTickSeconds));
+  const possibleSteps = Math.max(0, Math.floor((safeAccumulator + SIM_ACCUMULATOR_EPSILON) / safeTickSeconds));
   const steps = Math.min(possibleSteps, safeMaxSteps);
   const capped = possibleSteps > safeMaxSteps;
   const rawRemainingAccumulator = safeAccumulator - steps * safeTickSeconds;
