@@ -8,9 +8,9 @@
     "dev": "node ./node_modules/vite/bin/vite.js",
     "build": "node ./scripts/build.mjs",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
-    "test": "vitest",
-    "test:ui": "vitest --ui",
-    "build:full": "tsc && node ./node_modules/vite/bin/vite.js build",
+    "test": "node ./scripts/test.mjs",
+    "test:ui": "node ./scripts/test.mjs --ui",
+    "build:full": "node ./node_modules/typescript/bin/tsc && node ./node_modules/vite/bin/vite.js build",
     "build:types": "node ./node_modules/typescript/bin/tsc"
   },
   "keywords": [
