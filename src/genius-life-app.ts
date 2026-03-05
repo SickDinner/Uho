@@ -81,9 +81,54 @@ export function seasonPaceModifier(season: GlobalState['season']): number {
   return 1;
 }
 
+
+export interface FixedStepAdvanceResult {
+  accumulator: number;
+  stepsToSimulate: number;
+}
+
+export function computeFixedStepAdvance(
+  accumulator: number,
+  frameDeltaSeconds: number,
+  speed: number,
+  tickSeconds: number,
+  maxStepsPerFrame: number,
+  maxAccumulatedSeconds: number,
+  epsilon: number
+): FixedStepAdvanceResult {
+  const safeEpsilon = Math.max(epsilon, Number.EPSILON);
+  const safeTickSeconds = Math.max(tickSeconds, safeEpsilon);
+  const safeMaxStepsPerFrame = Math.max(0, Math.floor(maxStepsPerFrame));
+  const safeMaxAccumulatedSeconds = Math.max(0, maxAccumulatedSeconds);
+  const safeAccumulator = Number.isFinite(accumulator) ? clamp(accumulator, 0, safeMaxAccumulatedSeconds) : 0;
+  const safeFrameDeltaSeconds = Number.isFinite(frameDeltaSeconds) ? Math.max(0, frameDeltaSeconds) : 0;
+  const safeSpeed = Number.isFinite(speed) ? Math.max(0, speed) : 0;
+
+  const clampedAccumulator = Math.min(
+    safeAccumulator + safeFrameDeltaSeconds * safeSpeed,
+    safeMaxAccumulatedSeconds
+  );
+  const availableSteps = Math.floor(clampedAccumulator / safeTickSeconds);
+  const stepsToSimulate = Math.min(availableSteps, safeMaxStepsPerFrame);
+
+  let nextAccumulator = clampedAccumulator - stepsToSimulate * safeTickSeconds;
+  if (nextAccumulator < safeEpsilon) {
+    nextAccumulator = 0;
+  }
+
+  return {
+    accumulator: nextAccumulator,
+    stepsToSimulate
+  };
+}
+
 const NAMES = ['Aino', 'Eero', 'Veera', 'Sisu', 'Lumi', 'Milo', 'Nora', 'Onni', 'Helmi', 'Otso'];
 const PROFESSIONS: Profession[] = ['Keksijä', 'Taiteilija', 'Opettaja', 'Rakentaja'];
 const SEASONS: GlobalState['season'][] = ['kevät', 'kesä', 'syksy', 'talvi'];
+const SIM_TICK_SECONDS = 1 / 60;
+const MAX_SIM_STEPS_PER_FRAME = 8;
+const MAX_ACCUMULATED_SIM_SECONDS = SIM_TICK_SECONDS * 100;
+const SIM_TIME_EPSILON = 1e-9;
 
 export class GeniusLifeApp {
   private canvas: HTMLCanvasElement;
@@ -94,6 +139,7 @@ export class GeniusLifeApp {
   private tick = 0;
   private raf = 0;
   private lastTime = 0;
+  private simulationAccumulator = 0;
 
   private messageLog: HTMLElement;
   private statsPanel: HTMLElement;
@@ -174,6 +220,7 @@ export class GeniusLifeApp {
     if (this.running) return;
     this.running = true;
     this.lastTime = performance.now();
+    this.simulationAccumulator = 0;
     this.loop(this.lastTime);
   }
 
@@ -474,12 +521,25 @@ export class GeniusLifeApp {
 
   private loop = (now: number): void => {
     if (!this.running) return;
-    const dt = Math.min((now - this.lastTime) / 1000, 0.05);
+    const dt = Math.min((now - this.lastTime) / 1000, 0.25);
     this.lastTime = now;
     this.updateFps(dt);
 
     if (!this.state.paused) {
-      this.update(dt * this.state.speed);
+      const simulationStep = computeFixedStepAdvance(
+        this.simulationAccumulator,
+        dt,
+        this.state.speed,
+        SIM_TICK_SECONDS,
+        MAX_SIM_STEPS_PER_FRAME,
+        MAX_ACCUMULATED_SIM_SECONDS,
+        SIM_TIME_EPSILON
+      );
+
+      this.simulationAccumulator = simulationStep.accumulator;
+      for (let i = 0; i < simulationStep.stepsToSimulate; i++) {
+        this.update(SIM_TICK_SECONDS);
+      }
     }
     this.render();
     this.raf = requestAnimationFrame(this.loop);
