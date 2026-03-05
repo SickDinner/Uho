@@ -96,6 +96,10 @@ export class PillCatalog {
   private effectMap = new Map<string, PillEffectDefinition>();
 
   constructor(private blueprints: PillBlueprint[], rng: RNG) {
+    if (blueprints.length === 0) {
+      throw new Error('PillCatalog requires at least one pill blueprint');
+    }
+
     const assignments = rng.shuffle(pillEffects);
     blueprints.forEach((blueprint, index) => {
       const effect = assignments[index % assignments.length];
@@ -152,6 +156,10 @@ export class Inventory {
   }
 
   usePill(index: number, context: PillEffectContext): PillInstance | undefined {
+    if (index < 0 || index >= this.pills.length) {
+      return undefined;
+    }
+
     const pill = this.pills.splice(index, 1)[0];
     if (!pill) {
       return undefined;
@@ -191,6 +199,10 @@ export class Inventory {
   }
 
   addRiceGrenades(amount: number): void {
+    if (amount <= 0) {
+      return;
+    }
+
     this.riceGrenades += amount;
   }
 }

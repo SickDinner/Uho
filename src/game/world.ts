@@ -97,7 +97,31 @@ export class World {
     return rng.pick(zone.ambient);
   }
 
+
+  private validateLayout(definition: ZoneDefinition): void {
+    if (definition.layout.length === 0) {
+      throw new Error(`Zone ${definition.id} has no layout rows`);
+    }
+
+    const width = definition.layout[0].length;
+    if (width === 0) {
+      throw new Error(`Zone ${definition.id} has an empty layout row`);
+    }
+
+    const nonRectangular = definition.layout.some((row) => row.length !== width);
+    if (nonRectangular) {
+      throw new Error(`Zone ${definition.id} layout must be rectangular`);
+    }
+
+    definition.exits.forEach((exit) => {
+      if (exit.x < 0 || exit.y < 0 || exit.x >= width || exit.y >= definition.layout.length) {
+        throw new Error(`Zone ${definition.id} has an out-of-bounds exit (${exit.x}, ${exit.y})`);
+      }
+    });
+  }
+
   private createZone(definition: ZoneDefinition): Zone {
+    this.validateLayout(definition);
     const tiles: Tile[][] = definition.layout.map((row, y) =>
       row.split('').map((char, x) => this.createTile(char, definition.exits, x, y))
     );
