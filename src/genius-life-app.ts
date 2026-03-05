@@ -88,7 +88,7 @@ const SIM_TICK_SECONDS = 1 / 60;
 const MAX_SIM_STEPS_PER_FRAME = 8;
 const SIM_ACCUMULATOR_EPSILON = 1e-9;
 
-export interface SimulationStepPlan {
+interface SimulationStepPlan {
   steps: number;
   remainingAccumulator: number;
 }
