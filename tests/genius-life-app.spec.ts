@@ -149,6 +149,11 @@ describe('genius-life-app helpers', () => {
       steps: 0,
       remainingAccumulator: accumulator
     });
+
+    expect(planSimulationSteps(accumulator, 0, 8)).toEqual({
+      steps: 0,
+      remainingAccumulator: accumulator
+    });
   });
 
   it('planSimulationSteps keeps remainingAccumulator bounded below tickSeconds when fully consumed', () => {
