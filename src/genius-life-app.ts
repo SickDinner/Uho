@@ -84,6 +84,68 @@ export function seasonPaceModifier(season: GlobalState['season']): number {
 const NAMES = ['Aino', 'Eero', 'Veera', 'Sisu', 'Lumi', 'Milo', 'Nora', 'Onni', 'Helmi', 'Otso'];
 const PROFESSIONS: Profession[] = ['Keksijä', 'Taiteilija', 'Opettaja', 'Rakentaja'];
 const SEASONS: GlobalState['season'][] = ['kevät', 'kesä', 'syksy', 'talvi'];
+const SIM_TICK_SECONDS = 1 / 60;
+const MAX_SIM_STEPS_PER_FRAME = 8;
+const SIM_ACCUMULATOR_EPSILON = 1e-9;
+
+interface SimulationStepPlan {
+  steps: number;
+  remainingAccumulator: number;
+  capped: boolean;
+}
+
+
+function normalizeNonNegativeFinite(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, value);
+}
+
+function normalizeAccumulator(accumulator: number): number {
+  return normalizeNonNegativeFinite(accumulator);
+}
+
+function normalizeTickSeconds(tickSeconds: number): number {
+  if (!Number.isFinite(tickSeconds)) return 0;
+  return tickSeconds;
+}
+
+function normalizeMaxSteps(maxSteps: number): number {
+  if (maxSteps === Number.POSITIVE_INFINITY) return Number.POSITIVE_INFINITY;
+  if (!Number.isFinite(maxSteps)) return 0;
+  return Math.floor(normalizeNonNegativeFinite(maxSteps));
+}
+
+export function planSimulationSteps(
+  accumulator: number,
+  tickSeconds: number,
+  maxSteps: number
+): SimulationStepPlan {
+  const safeAccumulator = normalizeAccumulator(accumulator);
+  const safeTickSeconds = normalizeTickSeconds(tickSeconds);
+  const safeMaxSteps = normalizeMaxSteps(maxSteps);
+
+  if (safeTickSeconds <= 0 || safeMaxSteps <= 0) {
+    return { steps: 0, remainingAccumulator: safeAccumulator, capped: false };
+  }
+
+  const quotient = safeAccumulator / safeTickSeconds;
+  let possibleSteps = Math.max(0, Math.floor(quotient));
+  let normalizedRemainder = safeAccumulator - possibleSteps * safeTickSeconds;
+
+  // Compensate for floating-point precision (e.g. 0.3 / 0.1) without creating time from
+  // materially sub-tick accumulators.
+  if (normalizedRemainder + SIM_ACCUMULATOR_EPSILON >= safeTickSeconds) {
+    possibleSteps += 1;
+    normalizedRemainder -= safeTickSeconds;
+  }
+
+  const steps = Math.min(possibleSteps, safeMaxSteps);
+  const capped = possibleSteps > safeMaxSteps;
+  const rawRemainingAccumulator = safeAccumulator - steps * safeTickSeconds;
+  const remainingAccumulator = rawRemainingAccumulator <= SIM_ACCUMULATOR_EPSILON ? 0 : rawRemainingAccumulator;
+
+  return { steps, remainingAccumulator, capped };
+}
 
 export class GeniusLifeApp {
   private canvas: HTMLCanvasElement;
@@ -94,6 +156,7 @@ export class GeniusLifeApp {
   private tick = 0;
   private raf = 0;
   private lastTime = 0;
+  private simulationAccumulator = 0;
 
   private messageLog: HTMLElement;
   private statsPanel: HTMLElement;
@@ -174,6 +237,7 @@ export class GeniusLifeApp {
     if (this.running) return;
     this.running = true;
     this.lastTime = performance.now();
+    this.simulationAccumulator = 0;
     this.loop(this.lastTime);
   }
 
@@ -474,12 +538,25 @@ export class GeniusLifeApp {
 
   private loop = (now: number): void => {
     if (!this.running) return;
-    const dt = Math.min((now - this.lastTime) / 1000, 0.05);
+    const dt = Math.min((now - this.lastTime) / 1000, 0.25);
     this.lastTime = now;
     this.updateFps(dt);
 
     if (!this.state.paused) {
-      this.update(dt * this.state.speed);
+      this.simulationAccumulator += dt * this.state.speed;
+      const { steps, remainingAccumulator } = planSimulationSteps(
+        this.simulationAccumulator,
+        SIM_TICK_SECONDS,
+        MAX_SIM_STEPS_PER_FRAME
+      );
+
+      for (let i = 0; i < steps; i += 1) {
+        this.update(SIM_TICK_SECONDS);
+      }
+
+      // Preserve any unprocessed simulation time so long/slow frames catch up deterministically
+      // across subsequent render frames instead of dropping elapsed simulation progress.
+      this.simulationAccumulator = remainingAccumulator;
     }
     this.render();
     this.raf = requestAnimationFrame(this.loop);

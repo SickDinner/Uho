@@ -6,6 +6,7 @@ import {
   inferModeForIntensity,
   seasonPaceModifier,
   squaredDistance,
+  planSimulationSteps,
   type NeedsState
 } from '../src/genius-life-app.ts';
 
@@ -41,6 +42,189 @@ describe('genius-life-app helpers', () => {
       expect(value).toBeGreaterThanOrEqual(0);
       expect(value).toBeLessThan(1);
     });
+  });
+
+  it('planSimulationSteps preserves overflow time when max steps are hit', () => {
+    const tickSeconds = 1 / 60;
+    const maxSteps = 8;
+    const accumulator = tickSeconds * 10.5;
+
+    const plan = planSimulationSteps(accumulator, tickSeconds, maxSteps);
+
+    expect(plan.steps).toBe(8);
+    expect(plan.remainingAccumulator).toBeCloseTo(tickSeconds * 2.5, 10);
+    expect(plan.capped).toBe(true);
+  });
+
+  it('planSimulationSteps consumes all available steps below the cap', () => {
+    const tickSeconds = 1 / 60;
+    const plan = planSimulationSteps(tickSeconds * 3.25, tickSeconds, 8);
+
+    expect(plan.steps).toBe(3);
+    expect(plan.remainingAccumulator).toBeCloseTo(tickSeconds * 0.25, 10);
+    expect(plan.capped).toBe(false);
+  });
+
+  it('planSimulationSteps avoids stepping when maxSteps is zero', () => {
+    const tickSeconds = 1 / 60;
+    const accumulator = tickSeconds * 5;
+
+    const plan = planSimulationSteps(accumulator, tickSeconds, 0);
+
+    expect(plan.steps).toBe(0);
+    expect(plan.remainingAccumulator).toBeCloseTo(accumulator, 10);
+    expect(plan.capped).toBe(false);
+  });
+
+  it('planSimulationSteps floors non-integer maxSteps to avoid extra ticks', () => {
+    const tickSeconds = 1 / 60;
+    const accumulator = tickSeconds * 5;
+
+    const plan = planSimulationSteps(accumulator, tickSeconds, 0.5);
+
+    expect(plan.steps).toBe(0);
+    expect(plan.remainingAccumulator).toBeCloseTo(accumulator, 10);
+    expect(plan.capped).toBe(false);
+  });
+
+  it('planSimulationSteps treats infinite accumulator as zero', () => {
+    const tickSeconds = 1 / 60;
+    const plan = planSimulationSteps(Number.POSITIVE_INFINITY, tickSeconds, 8);
+
+    expect(plan.steps).toBe(0);
+    expect(plan.remainingAccumulator).toBe(0);
+    expect(plan.capped).toBe(false);
+  });
+
+
+  it('planSimulationSteps normalizes invalid accumulator inputs', () => {
+    const tickSeconds = 1 / 60;
+
+    expect(planSimulationSteps(-1, tickSeconds, 8)).toEqual({ steps: 0, remainingAccumulator: 0, capped: false });
+    expect(planSimulationSteps(Number.NaN, tickSeconds, 8)).toEqual({ steps: 0, remainingAccumulator: 0, capped: false });
+  });
+  it('planSimulationSteps avoids undercount from floating division precision', () => {
+    const tickSeconds = 0.1;
+    const accumulator = 0.3;
+
+    const plan = planSimulationSteps(accumulator, tickSeconds, 3);
+
+    expect(plan.steps).toBe(3);
+    expect(plan.remainingAccumulator).toBe(0);
+    expect(plan.capped).toBe(false);
+  });
+
+  it('planSimulationSteps does not overcount materially sub-tick accumulator values', () => {
+    const tickSeconds = 0.1;
+    const accumulator = tickSeconds - 1e-6;
+
+    const plan = planSimulationSteps(accumulator, tickSeconds, 3);
+
+    expect(plan.steps).toBe(0);
+    expect(plan.remainingAccumulator).toBeCloseTo(accumulator, 12);
+    expect(plan.capped).toBe(false);
+  });
+
+
+  it('planSimulationSteps clamps near-zero floating remainder to zero', () => {
+    const tickSeconds = 0.1;
+    const accumulator = 0.30000000000000004;
+
+    const plan = planSimulationSteps(accumulator, tickSeconds, 3);
+
+    expect(plan.steps).toBe(3);
+    expect(plan.remainingAccumulator).toBe(0);
+    expect(plan.capped).toBe(false);
+  });
+
+  it('planSimulationSteps treats infinite maxSteps as uncapped for the frame', () => {
+    const tickSeconds = 1 / 60;
+    const plan = planSimulationSteps(tickSeconds * 3.5, tickSeconds, Number.POSITIVE_INFINITY);
+
+    expect(plan.steps).toBe(3);
+    expect(plan.remainingAccumulator).toBeCloseTo(tickSeconds * 0.5, 10);
+    expect(plan.capped).toBe(false);
+  });
+  it('planSimulationSteps treats NaN maxSteps as zero', () => {
+    const tickSeconds = 1 / 60;
+    const accumulator = tickSeconds * 2;
+    const plan = planSimulationSteps(accumulator, tickSeconds, Number.NaN);
+
+    expect(plan.steps).toBe(0);
+    expect(plan.remainingAccumulator).toBeCloseTo(accumulator, 10);
+    expect(plan.capped).toBe(false);
+  });
+
+  it('planSimulationSteps rejects negative infinite maxSteps', () => {
+    const tickSeconds = 1 / 60;
+    const plan = planSimulationSteps(tickSeconds * 3.5, tickSeconds, Number.NEGATIVE_INFINITY);
+
+    expect(plan.steps).toBe(0);
+    expect(plan.remainingAccumulator).toBeCloseTo(tickSeconds * 3.5, 10);
+    expect(plan.capped).toBe(false);
+  });
+
+
+  it('planSimulationSteps avoids stepping when tickSeconds is invalid', () => {
+    const accumulator = 1;
+
+    expect(planSimulationSteps(accumulator, Number.NaN, 8)).toEqual({
+      steps: 0,
+      remainingAccumulator: accumulator,
+      capped: false
+    });
+    expect(planSimulationSteps(accumulator, Number.POSITIVE_INFINITY, 8)).toEqual({
+      steps: 0,
+      remainingAccumulator: accumulator,
+      capped: false
+    });
+
+    expect(planSimulationSteps(accumulator, Number.NEGATIVE_INFINITY, 8)).toEqual({
+      steps: 0,
+      remainingAccumulator: accumulator,
+      capped: false
+    });
+
+    expect(planSimulationSteps(accumulator, 0, 8)).toEqual({
+      steps: 0,
+      remainingAccumulator: accumulator,
+      capped: false
+    });
+
+    expect(planSimulationSteps(accumulator, -0, 8)).toEqual({
+      steps: 0,
+      remainingAccumulator: accumulator,
+      capped: false
+    });
+  });
+  it('planSimulationSteps avoids stepping when tickSeconds is negative', () => {
+    const accumulator = 1;
+    expect(planSimulationSteps(accumulator, -0.1, 8)).toEqual({
+      steps: 0,
+      remainingAccumulator: accumulator,
+      capped: false
+    });
+  });
+
+  it('planSimulationSteps avoids stepping when maxSteps is negative fractional', () => {
+    const tickSeconds = 1 / 60;
+    const accumulator = tickSeconds * 3;
+
+    const plan = planSimulationSteps(accumulator, tickSeconds, -0.5);
+
+    expect(plan.steps).toBe(0);
+    expect(plan.remainingAccumulator).toBeCloseTo(accumulator, 10);
+    expect(plan.capped).toBe(false);
+  });
+
+  it('planSimulationSteps keeps remainingAccumulator bounded below tickSeconds when fully consumed', () => {
+    const tickSeconds = 1 / 60;
+    const plan = planSimulationSteps(tickSeconds * 7.9999999999, tickSeconds, 8);
+
+    expect(plan.steps).toBe(8);
+    expect(plan.remainingAccumulator).toBeGreaterThanOrEqual(0);
+    expect(plan.capped).toBe(false);
+    expect(plan.remainingAccumulator).toBeLessThan(tickSeconds);
   });
 
 
