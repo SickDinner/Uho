@@ -128,7 +128,17 @@ export function planSimulationSteps(
     return { steps: 0, remainingAccumulator: safeAccumulator, capped: false };
   }
 
-  const possibleSteps = Math.max(0, Math.floor((safeAccumulator + SIM_ACCUMULATOR_EPSILON) / safeTickSeconds));
+  const quotient = safeAccumulator / safeTickSeconds;
+  let possibleSteps = Math.max(0, Math.floor(quotient));
+  let normalizedRemainder = safeAccumulator - possibleSteps * safeTickSeconds;
+
+  // Compensate for floating-point precision (e.g. 0.3 / 0.1) without creating time from
+  // materially sub-tick accumulators.
+  if (normalizedRemainder + SIM_ACCUMULATOR_EPSILON >= safeTickSeconds) {
+    possibleSteps += 1;
+    normalizedRemainder -= safeTickSeconds;
+  }
+
   const steps = Math.min(possibleSteps, safeMaxSteps);
   const capped = possibleSteps > safeMaxSteps;
   const rawRemainingAccumulator = safeAccumulator - steps * safeTickSeconds;

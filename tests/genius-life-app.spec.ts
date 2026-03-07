@@ -114,6 +114,17 @@ describe('genius-life-app helpers', () => {
     expect(plan.capped).toBe(false);
   });
 
+  it('planSimulationSteps does not overcount materially sub-tick accumulator values', () => {
+    const tickSeconds = 0.1;
+    const accumulator = tickSeconds - 1e-6;
+
+    const plan = planSimulationSteps(accumulator, tickSeconds, 3);
+
+    expect(plan.steps).toBe(0);
+    expect(plan.remainingAccumulator).toBeCloseTo(accumulator, 12);
+    expect(plan.capped).toBe(false);
+  });
+
 
   it('planSimulationSteps clamps near-zero floating remainder to zero', () => {
     const tickSeconds = 0.1;
