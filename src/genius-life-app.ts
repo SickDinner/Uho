@@ -97,29 +97,52 @@ export function computeFixedStepAdvance(
   epsilon: number
 ): FixedStepAdvanceResult {
   const safeEpsilon = Number.isFinite(epsilon) ? Math.max(epsilon, Number.EPSILON) : Number.EPSILON;
-  const safeTickSeconds = Number.isFinite(tickSeconds) ? Math.max(tickSeconds, safeEpsilon) : safeEpsilon;
+  const safeAccumulator = Number.isFinite(accumulator) ? Math.max(0, accumulator) : 0;
+  const safeFrameDeltaSeconds = Number.isFinite(frameDeltaSeconds) ? Math.max(0, frameDeltaSeconds) : 0;
+  const safeSpeed = Number.isFinite(speed) ? Math.max(0, speed) : 0;
   const safeMaxStepsPerFrame = Number.isFinite(maxStepsPerFrame)
     ? Math.max(0, Math.floor(maxStepsPerFrame))
     : 0;
-  const safeMaxAccumulatedSeconds = Number.isFinite(maxAccumulatedSeconds) ? Math.max(0, maxAccumulatedSeconds) : 0;
-  const safeAccumulator = Number.isFinite(accumulator) ? clamp(accumulator, 0, safeMaxAccumulatedSeconds) : 0;
-  const safeFrameDeltaSeconds = Number.isFinite(frameDeltaSeconds) ? Math.max(0, frameDeltaSeconds) : 0;
-  const safeSpeed = Number.isFinite(speed) ? Math.max(0, speed) : 0;
+  const safeMaxAccumulatedSeconds = Number.isFinite(maxAccumulatedSeconds)
+    ? Math.max(0, maxAccumulatedSeconds)
+    : 0;
 
-  const clampedAccumulator = Math.min(
+  // Invalid or disabled timing configuration must not invent simulation time.
+  if (
+    !Number.isFinite(tickSeconds) ||
+    tickSeconds <= 0 ||
+    safeMaxStepsPerFrame <= 0 ||
+    safeMaxAccumulatedSeconds <= 0
+  ) {
+    return {
+      accumulator: Math.min(safeAccumulator, safeMaxAccumulatedSeconds),
+      stepsToSimulate: 0
+    };
+  }
+
+  const accumulatedSeconds = Math.min(
     safeAccumulator + safeFrameDeltaSeconds * safeSpeed,
     safeMaxAccumulatedSeconds
   );
-  const availableSteps = Math.floor(clampedAccumulator / safeTickSeconds);
+
+  // Adding a tiny epsilon avoids 0.3 / 0.1 style under-counts while remaining
+  // far below a materially sub-tick value.
+  const availableSteps = Math.max(
+    0,
+    Math.floor((accumulatedSeconds + safeEpsilon) / tickSeconds)
+  );
   const stepsToSimulate = Math.min(availableSteps, safeMaxStepsPerFrame);
 
-  let nextAccumulator = clampedAccumulator - stepsToSimulate * safeTickSeconds;
-  if (nextAccumulator < safeEpsilon) {
+  let nextAccumulator = accumulatedSeconds - stepsToSimulate * tickSeconds;
+  if (nextAccumulator < 0 && nextAccumulator > -safeEpsilon) {
+    nextAccumulator = 0;
+  }
+  if (nextAccumulator >= 0 && nextAccumulator < safeEpsilon) {
     nextAccumulator = 0;
   }
 
   return {
-    accumulator: nextAccumulator,
+    accumulator: Math.max(0, nextAccumulator),
     stepsToSimulate
   };
 }
@@ -128,8 +151,8 @@ const NAMES = ['Aino', 'Eero', 'Veera', 'Sisu', 'Lumi', 'Milo', 'Nora', 'Onni', 
 const PROFESSIONS: Profession[] = ['Keksijä', 'Taiteilija', 'Opettaja', 'Rakentaja'];
 const SEASONS: GlobalState['season'][] = ['kevät', 'kesä', 'syksy', 'talvi'];
 const SIM_TICK_SECONDS = 1 / 60;
-const MAX_SIM_STEPS_PER_FRAME = 8;
-const MAX_ACCUMULATED_SIM_SECONDS = SIM_TICK_SECONDS * 100;
+const MAX_SIM_STEPS_PER_FRAME_AT_1X = 15;
+const MAX_ACCUMULATED_SIM_SECONDS = 60;
 const SIM_TIME_EPSILON = 1e-9;
 
 export class GeniusLifeApp {
@@ -409,6 +432,8 @@ export class GeniusLifeApp {
     this.state.season = 'kevät';
     this.state.paused = false;
     this.state.speed = 1;
+    this.simulationAccumulator = 0;
+    this.lastTime = performance.now();
     this.seedWorld();
 
     if (this.pauseBtn) this.pauseBtn.textContent = '⏸️ Pause';
@@ -523,17 +548,21 @@ export class GeniusLifeApp {
 
   private loop = (now: number): void => {
     if (!this.running) return;
-    const dt = Math.min((now - this.lastTime) / 1000, 0.25);
+
+    const elapsedSeconds = Math.max(0, (now - this.lastTime) / 1000);
     this.lastTime = now;
-    this.updateFps(dt);
+
+    // FPS reporting may clamp pathological frame gaps, but simulation timing
+    // must use the real elapsed time or determinism becomes frame-rate dependent.
+    this.updateFps(Math.min(elapsedSeconds, 0.25));
 
     if (!this.state.paused) {
       const simulationStep = computeFixedStepAdvance(
         this.simulationAccumulator,
-        dt,
+        elapsedSeconds,
         this.state.speed,
         SIM_TICK_SECONDS,
-        MAX_SIM_STEPS_PER_FRAME,
+        MAX_SIM_STEPS_PER_FRAME_AT_1X * this.state.speed,
         MAX_ACCUMULATED_SIM_SECONDS,
         SIM_TIME_EPSILON
       );
@@ -543,6 +572,7 @@ export class GeniusLifeApp {
         this.update(SIM_TICK_SECONDS);
       }
     }
+
     this.render();
     this.raf = requestAnimationFrame(this.loop);
   };
