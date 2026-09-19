@@ -11,10 +11,9 @@
  * ULTIMATE VILLAGE EXPERIENCE! ⚡🏡
  */
 
-import { EntityId, Vector2 } from '../core/types.ts';
-import { ComponentManager } from '../core/ecs.ts';
+import type { EntityId, Vector2 } from '../core/types.ts';
+import { Component, ComponentManager, World } from '../core/ecs.ts';
 import { Transform, Sprite } from '../core/components.ts';
-import { GameStyle, UniversalSpriteEngine } from './universal-sprite-engine.ts';
 
 export interface VillageLayout {
   size: Vector2;
@@ -100,9 +99,23 @@ export interface NPCSchedule {
   night: Vector2;
 }
 
+type VillageInteractionType = 'building' | 'npc' | 'decoration' | 'special';
+type VillageInteractionData = VillageBuilding | VillageNPC | VillageDecoration | SpecialLocation;
+
+export class VillageInteractable extends Component {
+  constructor(
+    entityId: EntityId,
+    public type: VillageInteractionType,
+    public data: VillageInteractionData,
+    public onInteract: () => void
+  ) {
+    super(entityId);
+  }
+}
+
 export class TopDownVillageGenerator {
+  private world: World;
   private componentManager: ComponentManager;
-  private spriteEngine: UniversalSpriteEngine;
   private villageEntities: EntityId[] = [];
   private currentLayout: VillageLayout | null = null;
 
@@ -320,9 +333,9 @@ export class TopDownVillageGenerator {
     }
   };
 
-  constructor(componentManager: ComponentManager, spriteEngine: UniversalSpriteEngine) {
-    this.componentManager = componentManager;
-    this.spriteEngine = spriteEngine;
+  constructor(world: World) {
+    this.world = world;
+    this.componentManager = world.componentManager;
   }
 
   // ============ VILLAGE GENERATION ============
@@ -380,22 +393,13 @@ export class TopDownVillageGenerator {
     // Create grass base for the entire village area
     for (let x = 0; x < layout.size.x; x++) {
       for (let y = 0; y < layout.size.y; y++) {
-        const grass = this.componentManager.createEntity();
+        const grass = this.world.createEntity();
         
-        this.componentManager.addComponent(grass, 'Transform', {
-          position: { x: x * 16, y: y * 16 },
-          rotation: 0,
-          scale: { x: 1, y: 1 }
-        } as Transform);
+        this.componentManager.addComponent(new Transform(grass.id, x * 16, y * 16));
         
-        this.componentManager.addComponent(grass, 'Sprite', {
-          textureId: 'roguelike_grass',
-          frame: 0,
-          layer: 0,
-          alpha: 1
-        } as Sprite);
+        this.componentManager.addComponent(new Sprite(grass.id, 'roguelike_grass', 1, true, 0));
         
-        this.villageEntities.push(grass);
+        this.villageEntities.push(grass.id);
       }
     }
   }
@@ -720,33 +724,20 @@ export class TopDownVillageGenerator {
       const x = road.start.x + i * stepX;
       const y = road.start.y + i * stepY;
       
-      const roadEntity = this.componentManager.createEntity();
+      const roadEntity = this.world.createEntity();
       
-      this.componentManager.addComponent(roadEntity, 'Transform', {
-        position: { x: x * 16, y: y * 16 },
-        rotation: 0,
-        scale: { x: 1, y: 1 }
-      } as Transform);
+      this.componentManager.addComponent(new Transform(roadEntity.id, x * 16, y * 16));
       
-      this.componentManager.addComponent(roadEntity, 'Sprite', {
-        textureId: `roguelike_road_${road.type}`,
-        frame: 0,
-        layer: 1,
-        alpha: 1
-      } as Sprite);
+      this.componentManager.addComponent(new Sprite(roadEntity.id, `roguelike_road_${road.type}`, 1, true, 1));
       
-      this.villageEntities.push(roadEntity);
+      this.villageEntities.push(roadEntity.id);
     }
   }
 
   private createBuildingEntity(building: VillageBuilding): EntityId {
-    const buildingEntity = this.componentManager.createEntity();
+    const buildingEntity = this.world.createEntity();
     
-    this.componentManager.addComponent(buildingEntity, 'Transform', {
-      position: { x: building.position.x * 16, y: building.position.y * 16 },
-      rotation: 0,
-      scale: { x: 1, y: 1 }
-    } as Transform);
+    this.componentManager.addComponent(new Transform(buildingEntity.id, building.position.x * 16, building.position.y * 16));
     
     // Choose sprite based on building type
     let spriteId = '';
@@ -762,103 +753,75 @@ export class TopDownVillageGenerator {
       default: spriteId = 'roguelike_building_generic';
     }
     
-    this.componentManager.addComponent(buildingEntity, 'Sprite', {
-      textureId: spriteId,
-      frame: 0,
-      layer: 3,
-      alpha: 1
-    } as Sprite);
+    this.componentManager.addComponent(new Sprite(buildingEntity.id, spriteId, 1, true, 3));
     
     // Add interaction component
-    this.componentManager.addComponent(buildingEntity, 'Interactable', {
-      type: 'building',
-      data: building,
-      onInteract: () => this.onBuildingInteract(building)
-    });
+    this.componentManager.addComponent(new VillageInteractable(
+      buildingEntity.id,
+      'building',
+      building,
+      () => this.onBuildingInteract(building)
+    ));
     
-    this.villageEntities.push(buildingEntity);
-    return buildingEntity;
+    this.villageEntities.push(buildingEntity.id);
+    return buildingEntity.id;
   }
 
   private createNPCEntity(npc: VillageNPC): EntityId {
-    const npcEntity = this.componentManager.createEntity();
+    const npcEntity = this.world.createEntity();
     
-    this.componentManager.addComponent(npcEntity, 'Transform', {
-      position: { x: npc.position.x * 16, y: npc.position.y * 16 },
-      rotation: 0,
-      scale: { x: 1, y: 1 }
-    } as Transform);
+    this.componentManager.addComponent(new Transform(npcEntity.id, npc.position.x * 16, npc.position.y * 16));
     
-    this.componentManager.addComponent(npcEntity, 'Sprite', {
-      textureId: `roguelike_${npc.sprite}`,
-      frame: 0,
-      layer: 5,
-      alpha: 1
-    } as Sprite);
+    this.componentManager.addComponent(new Sprite(npcEntity.id, `roguelike_${npc.sprite}`, 1, true, 5));
     
     // Add interaction component
-    this.componentManager.addComponent(npcEntity, 'Interactable', {
-      type: 'npc',
-      data: npc,
-      onInteract: () => this.onNPCInteract(npc)
-    });
+    this.componentManager.addComponent(new VillageInteractable(
+      npcEntity.id,
+      'npc',
+      npc,
+      () => this.onNPCInteract(npc)
+    ));
     
-    this.villageEntities.push(npcEntity);
-    return npcEntity;
+    this.villageEntities.push(npcEntity.id);
+    return npcEntity.id;
   }
 
   private createDecorationEntity(decoration: VillageDecoration): EntityId {
-    const decorEntity = this.componentManager.createEntity();
+    const decorEntity = this.world.createEntity();
     
-    this.componentManager.addComponent(decorEntity, 'Transform', {
-      position: { x: decoration.position.x * 16, y: decoration.position.y * 16 },
-      rotation: 0,
-      scale: { x: 1, y: 1 }
-    } as Transform);
+    this.componentManager.addComponent(new Transform(decorEntity.id, decoration.position.x * 16, decoration.position.y * 16));
     
-    this.componentManager.addComponent(decorEntity, 'Sprite', {
-      textureId: `roguelike_${decoration.sprite}`,
-      frame: 0,
-      layer: 2,
-      alpha: 1
-    } as Sprite);
+    this.componentManager.addComponent(new Sprite(decorEntity.id, `roguelike_${decoration.sprite}`, 1, true, 2));
     
     if (decoration.interactive) {
-      this.componentManager.addComponent(decorEntity, 'Interactable', {
-        type: 'decoration',
-        data: decoration,
-        onInteract: () => this.onDecorationInteract(decoration)
-      });
+      this.componentManager.addComponent(new VillageInteractable(
+        decorEntity.id,
+        'decoration',
+        decoration,
+        () => this.onDecorationInteract(decoration)
+      ));
     }
     
-    this.villageEntities.push(decorEntity);
-    return decorEntity;
+    this.villageEntities.push(decorEntity.id);
+    return decorEntity.id;
   }
 
   private createSpecialLocationEntity(location: SpecialLocation): EntityId {
-    const locationEntity = this.componentManager.createEntity();
+    const locationEntity = this.world.createEntity();
     
-    this.componentManager.addComponent(locationEntity, 'Transform', {
-      position: { x: location.position.x * 16, y: location.position.y * 16 },
-      rotation: 0,
-      scale: { x: 1, y: 1 }
-    } as Transform);
+    this.componentManager.addComponent(new Transform(locationEntity.id, location.position.x * 16, location.position.y * 16));
     
-    this.componentManager.addComponent(locationEntity, 'Sprite', {
-      textureId: `roguelike_${location.sprite}`,
-      frame: 0,
-      layer: 4,
-      alpha: 1
-    } as Sprite);
+    this.componentManager.addComponent(new Sprite(locationEntity.id, `roguelike_${location.sprite}`, 1, true, 4));
     
-    this.componentManager.addComponent(locationEntity, 'Interactable', {
-      type: 'special',
-      data: location,
-      onInteract: () => this.onSpecialLocationInteract(location)
-    });
+    this.componentManager.addComponent(new VillageInteractable(
+      locationEntity.id,
+      'special',
+      location,
+      () => this.onSpecialLocationInteract(location)
+    ));
     
-    this.villageEntities.push(locationEntity);
-    return locationEntity;
+    this.villageEntities.push(locationEntity.id);
+    return locationEntity.id;
   }
 
   // ============ INTERACTION HANDLERS ============
@@ -930,7 +893,7 @@ export class TopDownVillageGenerator {
 
   private clearVillage(): void {
     for (const entityId of this.villageEntities) {
-      this.componentManager.removeEntity(entityId);
+      this.world.removeEntity(entityId);
     }
     this.villageEntities = [];
   }
